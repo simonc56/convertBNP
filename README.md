@@ -25,7 +25,7 @@ Installation
 2. Extraire pdftotext.exe et convertBNP.py dans le répertoire des relevés de compte PDF
 3. Ouvrir le fichier convertBNP.py avec le Bloc-Notes
    Modifier la ligne contenant :
-   PREFIXE_COMPTE = "RCHQ_101_300040010800000943986_"
+   PREFIXE_COMPTE = "RCHQ_101_300040012300001234567_"
    en y mettant votre numéro de compte (voir le nom de vos fichiers PDF)
    cette ligne sert à identifier les fichiers du compte bancaire à convertir.
 4. Lancer le script en double-cliquant sur le fichier convertBNP.py
@@ -46,18 +46,18 @@ Script en action (exemple)
     2013: 01 02 03 04 05 06 07 08 09 10 11 12
     2014: 01 02 03 04 05 06 07 08 09 10 11 12
 
-    [pdf->txt] Conversion : RCHQ_101_300040010800000943986_20140926_2226.pdf
-    [pdf->txt] Conversion : RCHQ_101_300040010800000943986_20141026_2239.pdf
-    [pdf->txt] Conversion : RCHQ_101_300040010800000943986_20141126_2218.pdf
-    [pdf->txt] Conversion : RCHQ_101_300040010800000943986_20141226_2224.pdf
+    [pdf->txt] Conversion : RCHQ_101_300040012300001234567_20140926_2226.pdf
+    [pdf->txt] Conversion : RCHQ_101_300040012300001234567_20141026_2239.pdf
+    [pdf->txt] Conversion : RCHQ_101_300040012300001234567_20141126_2218.pdf
+    [pdf->txt] Conversion : RCHQ_101_300040012300001234567_20141226_2224.pdf
 
-    [txt->   ] Lecture    : RCHQ_101_300040010800000943986_20140926_2226.txt
+    [txt->   ] Lecture    : RCHQ_101_300040012300001234567_20140926_2226.txt
     [   ->csv] Export     : Relevé BNP 2014-09.csv
-    [txt->   ] Lecture    : RCHQ_101_300040010800000943986_20141026_2239.txt
+    [txt->   ] Lecture    : RCHQ_101_300040012300001234567_20141026_2239.txt
     [   ->csv] Export     : Relevé BNP 2014-10.csv
-    [txt->   ] Lecture    : RCHQ_101_300040010800000943986_20141126_2218.txt
+    [txt->   ] Lecture    : RCHQ_101_300040012300001234567_20141126_2218.txt
     [   ->csv] Export     : Relevé BNP 2014-11.csv
-    [txt->   ] Lecture    : RCHQ_101_300040010800000943986_20141226_2224.txt
+    [txt->   ] Lecture    : RCHQ_101_300040012300001234567_20141226_2224.txt
     [   ->csv] Export     : Relevé BNP 2014-12.csv
     [txt-> x ] Nettoyage
 

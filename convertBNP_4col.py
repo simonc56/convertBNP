@@ -19,9 +19,9 @@
 #   - valeur de débit : string
 #   - valeur de crédit : string
 #
-# fichiers PDF de la forme RCHQ_101_300040010600000940009_20131026_2153.PDF
+# fichiers PDF de la forme RCHQ_101_300040012300001234567_20131026_2153.PDF
 
-PREFIXE_COMPTE = "RCHQ_101_300040010800000940009_"
+PREFIXE_COMPTE = "RCHQ_101_300040012300001234567_"
 PREFIXE_CSV    = "Relevé BNP "
 CSV_SEP        = ";"
 
