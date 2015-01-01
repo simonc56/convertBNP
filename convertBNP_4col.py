@@ -1,17 +1,14 @@
 ﻿#!/usr/bin/env python
 # -*- coding:utf-8 -*-
 #
-# convertBNP_4col.py
-# Lit les relevés bancaires de la BNP en PDF dans le répertoire courant pour en générer des CSV
-# Nécessite le fichier pdftotext.exe en version 3.03 issu de l'archive xpdf
-# disponible sur www.foolabs.com/xpdf/ (gratuit, GPL2)
-# 10/11/2013 v1
-# 02/01/2014 v1.0.1 : correction de la fonction affiche()
-#                     qui bugait avec les mois de décembre: ligne_12[int(i)-1] = i
-# 26/11/2014 v1.1 : ajout de la version "_4col" qui sépare les crédit et débits en 2 colonnes distinctes
-# créé avec python3
-# twolaw_at_free_dot_fr
-#
+# auteur             twolaw_at_free_dot_fr
+# nom                convertBNP_4col.py
+# description        Lit les relevés bancaires de la BNP en PDF dans le répertoire courant pour en générer des CSV
+#                    Nécessite le fichier pdftotext.exe en version 3.03 issu de l'archive xpdf (gratuit, GPL2)
+# ------------------
+# 10-nov-2013 v1     pour python3
+# 26-nov-2014 v1.1   ajout de la version "_4col" qui sépare crédit et débits en 2 colonnes distinctes
+# ------------------
 # chaque opération banquaire contient 4 éléments :
 #
 #   - date : string de type 'JJ/MM/AAAA'
