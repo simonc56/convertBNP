@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # -*- coding:utf-8 -*-
 #
-# convertBNP.py
+# convertBNP_4col.py
 # Lit les relevés bancaires de la BNP en PDF dans le répertoire courant pour en générer des CSV
 # Nécessite le fichier pdftotext.exe en version 3.03 issu de l'archive xpdf
 # disponible sur www.foolabs.com/xpdf/ (gratuit, GPL2)
@@ -12,15 +12,16 @@
 # créé avec python3
 # twolaw_at_free_dot_fr
 #
-# chaque opération banquaire contient 3 éléments :
+# chaque opération banquaire contient 4 éléments :
 #
 #   - date : string de type 'JJ/MM/AAAA'
 #   - description de l'opération : string
-#   - valeur : string (négatif si débit, positif si crédit)
+#   - valeur de débit : string
+#   - valeur de crédit : string
 #
 # fichiers PDF de la forme RCHQ_101_300040010600000940009_20131026_2153.PDF
 
-PREFIXE_COMPTE = "RCHQ_101_300040010800000943986_"
+PREFIXE_COMPTE = "RCHQ_101_300040010800000940009_"
 PREFIXE_CSV    = "Relevé BNP "
 CSV_SEP        = ";"
 
@@ -28,14 +29,15 @@ import os, subprocess
 
 class uneOperation:
     """Une opération bancaire = une date, un descriptif,
-    une valeur (négative=débit, positive=crédit) et un interrupteur de validité"""
+    une valeur de débit, une valeur de crédit et un interrupteur de validité"""
 
-    def __init__(self, date="", desc="", valeur=""):
+    def __init__(self, date="", desc="", debit="", credit=""):
         self.date   = date
         self.desc   = desc
-        self.valeur = valeur
+        self.debit  = debit
+        self.credit = credit
         self.valide = True
-        if not len(self.date) == 10 or int(self.date[:2]) > 31 or int(self.date[3:4]) > 12 or valeur == 0:
+        if not len(self.date) == 10 or int(self.date[:2]) > 31 or int(self.date[3:4]) > 12:
             self.valide = False
 
 class UnReleve:
@@ -68,8 +70,9 @@ class UnReleve:
                     l_operation = ' '.join(operation)
                     la_valeur   = list2valeur(dernier)
                     if len(ligne) < 180:
-                        la_valeur = "-" + la_valeur
-                    Ope = uneOperation(la_date, l_operation, la_valeur) # on crée l'opération bancaire
+                        Ope = uneOperation(la_date, l_operation, la_valeur, "") # on crée l'opération bancaire de débit
+                    else:
+                        Ope = uneOperation(la_date, l_operation, "", la_valeur) # on crée l'opération bancaire de credit
                     if Ope.valide:
                         self.ajoute(Ope)  # et on l'ajoute au relevé
 
@@ -82,9 +85,9 @@ class UnReleve:
         if not filename in deja_en_csv:
             print('[   ->csv] Export     : '+filename)
             with open(filename, "w") as file:
-                file.write("Date"+CSV_SEP+"Opération"+CSV_SEP+"Valeur\n")
+                file.write("Date"+CSV_SEP+"Opération"+CSV_SEP+"Débit"+CSV_SEP+"Crédit\n")
                 for Ope in self.liste:
-                    file.write(Ope.date+CSV_SEP+Ope.desc+CSV_SEP+Ope.valeur+"\n")
+                    file.write(Ope.date+CSV_SEP+Ope.desc+CSV_SEP+Ope.debit+CSV_SEP+Ope.credit+"\n")
                 file.close()
 
 def extraction_PDF(pdf_file, deja_en_txt, temp):
