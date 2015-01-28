@@ -53,25 +53,28 @@ class UnReleve:
         opérations bancaires et les mettre dans le relevé"""
         print('[txt->   ] Lecture    : '+fichier_txt)
         with open(fichier_txt) as file:
+            date = ""
             for ligne in file:
-                date = ligne[:12].split()    # on lit les premier caractères de la ligne
-                if estDate(date):             # si c'est une date, on attaque la lecture en détail
-                    dernier = ligne[-14::].split()
-                    operation = ligne[12:64].split()
-                    #la date est sur la 1ère ligne, on ajoute les lignes jusqu'à ce que dernier = argent
-                    while not estArgent(dernier) :
-                        ligne = file.readline()
+                date_ou_pas = ligne[:12].split()  # premier caractères de la ligne (date?)
+                dernier = ligne[-14::].split()    # derniers caractètres (valeur?)
+                if estDate(date_ou_pas):          # est-ce une date
+                    date = date_ou_pas
+                    operation = []
+                if date : # si on a deja trouvé une date
+                    if not estArgent(dernier) : # nom d'opération en plusieurs lignes, ceci n'est pas la dernière
                         operation.extend(ligne[12:64].split())
-                        dernier = ligne[-14::].split()
-                    la_date     = list2date(date, annee, mois)
-                    l_operation = ' '.join(operation)
-                    la_valeur   = list2valeur(dernier)
-                    if len(ligne) < 180:
-                        Ope = uneOperation(la_date, l_operation, la_valeur, "") # on crée l'opération bancaire de débit
-                    else:
-                        Ope = uneOperation(la_date, l_operation, "", la_valeur) # on crée l'opération bancaire de credit
-                    if Ope.valide:
-                        self.ajoute(Ope)  # et on l'ajoute au relevé
+                    else: # dernière ligne, avec une valeur
+                        operation.extend(ligne[12:64].split())
+                        la_date     = list2date(date, annee, mois)
+                        l_operation = ' '.join(operation)
+                        la_valeur   = list2valeur(dernier)
+                        date = "" # on repart à la recherche d'une date
+                        if len(ligne) < 180:
+                            Ope = uneOperation(la_date, l_operation, la_valeur, "") # on crée l'opération bancaire de débit
+                        else:
+                            Ope = uneOperation(la_date, l_operation, "", la_valeur) # on crée l'opération bancaire de credit
+                        if Ope.valide:
+                            self.ajoute(Ope)  # et on l'ajoute au relevé
 
     def genere_CSV(self, filename=""):
         """crée un fichier CSV qui contiendra les opérations du relevé
