@@ -8,8 +8,9 @@
 # ------------------
 # 10-nov-2013 v1     pour python3
 # 26-nov-2014 v1.1   ajout de la version "_4col" qui sépare crédit et débits en 2 colonnes distinctes
+# 28-jan-2015 v1.2   correction du bug "Mixing iteration and read methods would lose data"
 # ------------------
-# chaque opération banquaire contient 4 éléments :
+# chaque opération bancaire contient 4 éléments :
 #
 #   - date : string de type 'JJ/MM/AAAA'
 #   - description de l'opération : string
