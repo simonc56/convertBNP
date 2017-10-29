@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding:utf-8 -*-
 #
 # auteur             twolaw_at_free_dot_fr
@@ -19,24 +19,39 @@
 #
 # fichiers PDF de la forme RCHQ_101_300040012300001234567_20131026_2153.PDF
 
-PREFIXE_COMPTE = "RCHQ_101_300040012300001234567_"
-PREFIXE_CSV    = "Relevé BNP "
+PREFIXE_COMTE = "RCHQ_101_300040012300001234567_"
+PREFIXE_COMPTE = "RLV_CHQ_300040181600000906809_"
+
 CSV_SEP        = ";"
 
-import os, subprocess
+import os, subprocess, shutil
+import re
+pattern = re.compile('(\W)')
+
+if os.name == 'nt':
+    PDFTOTEXT = 'pdftotext.exe'
+    PREFIXE_CSV    = "Relevé BNP "
+else: 
+    PDFTOTEXT = 'pdftotext'
+    PREFIXE_CSV    = "Relevé_BNP_"
 
 class uneOperation:
     """Une opération bancaire = une date, un descriptif,
     une valeur de débit, une valeur de crédit et un interrupteur de validité"""
 
-    def __init__(self, date="", desc="", debit="", credit=""):
+    def __init__(self, date="", desc="", value = "", debit="", credit=""):
         self.date   = date
         self.desc   = desc
+        self.value  = value
         self.debit  = debit
         self.credit = credit
         self.valide = True
-        if not len(self.date) == 10 or int(self.date[:2]) > 31 or int(self.date[3:4]) > 12:
+        if not len(self.date) >= 10 or int(self.date[:2]) > 31 or int(self.date[3:4]) > 12:
             self.valide = False
+    def estRemplie(self):
+        ## return len(self.date) >=10 and len(desc) > 0 and len(value) > 0 \
+        ##    and (len(credit) > 0 or len(debit) > 0) 
+        return len(self.date) >=10 and (len(self.credit) > 0 or len(self.debit) > 0) 
 
 class UnReleve:
     """Un relevé de compte est une liste d'opérations bancaires
@@ -53,29 +68,70 @@ class UnReleve:
         """Parse un fichier TXT pour en extraire les
         opérations bancaires et les mettre dans le relevé"""
         print('[txt->   ] Lecture    : '+fichier_txt)
+
         with open(fichier_txt) as file:
-            date = ""
+            # ignore les lignes avec les coordonnées et le blabla
             for ligne in file:
+                monnaie = re.search('Monnaie du compte\s*: (\w*)', ligne)
+                if monnaie:
+                    monnaie = monnaie.group(1)
+                    break
+            
+            Ope = uneOperation()
+            date = ""
+            operation = []
+            num = -1
+            Table = faux
+            vide = 0
+
+            for ligne in file:
+                num = num+1
+                if len(ligne) < 2:           # ligne vide, trait du tableau
+                    vide = vide + 1
+                    if vide > 2:
+                        Table = Faux
+                        if Ope.estRemplie():         # on ajoute la précédente 
+                            self.ajoute(Ope)          # opération si elle est valide     
+                            Ope = uneOperation()
+                            date = ""
+                            operation = []
+                if Table==Faux
+            
+                print('{}({}): {}'.format(num, len(ligne), ligne))
+                
                 date_ou_pas = ligne[:12].split()  # premier caractères de la ligne (date?)
+                if 1 == len(date_ou_pas):
+                    date_ou_pas = pattern.split(date_ou_pas[0])
+                                                
                 dernier = ligne[-14::].split()    # derniers caractètres (valeur?)
+                if 1 == len(dernier):
+                    dernier = pattern.split(dernier[0])
+
                 if estDate(date_ou_pas):          # est-ce une date
-                    date = date_ou_pas
-                    operation = []
-                if date : # si on a deja trouvé une date
-                    if not estArgent(dernier) : # nom d'opération en plusieurs lignes, ceci n'est pas la dernière
-                        operation.extend(ligne[12:64].split())
-                    else: # dernière ligne, avec une valeur
-                        operation.extend(ligne[12:64].split())
-                        la_date     = list2date(date, annee, mois)
+                    date_valeur = ligne[132:142].split() # il y a aussi une date valeur
+                    if 1 == len(date_valeur):
+                        date_valeur = pattern.split(date_valeur[0])
+                    if Ope.estRemplie():          # on ajoute la précédente 
                         l_operation = ' '.join(operation)
-                        la_valeur   = list2valeur(dernier)
-                        date = "" # on repart à la recherche d'une date
-                        if len(ligne) < 180:
-                            Ope = uneOperation(la_date, l_operation, la_valeur, "") # on crée l'opération bancaire de débit
-                        else:
-                            Ope = uneOperation(la_date, l_operation, "", la_valeur) # on crée l'opération bancaire de credit
-                        if Ope.valide:
-                            self.ajoute(Ope)  # et on l'ajoute au relevé
+                        Ope.desc = l_operation
+                        self.ajoute(Ope)          # opération si elle est valide
+                        Ope = uneOperation()
+                    operation = []
+                    date = date_ou_pas
+                    
+                operation.extend(ligne[12:64].split())   
+    
+                if date : # si on a deja trouvé une date
+                    la_date     = list2date(date, annee, mois)
+                    Ope.date = la_date
+                if estArgent(dernier):
+                    la_valeur   = list2valeur(dernier) 
+                    if len(ligne) < 180:
+                        Ope.credit = la_valeur;
+                    else:
+                        Ope.debit = la_valeur;
+            if Ope.estRemplie():         # on ajoute la précédente 
+                self.ajoute(Ope)          # opération si elle est valide     
 
     def genere_CSV(self, filename=""):
         """crée un fichier CSV qui contiendra les opérations du relevé
@@ -97,24 +153,24 @@ def extraction_PDF(pdf_file, deja_en_txt, temp):
     txt_file = pdf_file[:-3]+"txt"
     if not txt_file in deja_en_txt:
         print('[pdf->txt] Conversion : '+pdf_file)
-        subprocess.call(['pdftotext.exe', '-layout', pdf_file, txt_file])
+        subprocess.call([PDFTOTEXT, '-layout', pdf_file, txt_file])
         temp.append(txt_file)
 
 def estDate(liste):
+    """ Attend un format ['JJ', '.' 'MM']"""
     if len(liste) != 3:
         return False
-    if len(liste[0]) == 2 and len(liste[1]) == 1 and len(liste[2]) == 2:
+    if len(liste[0]) ==2 and liste[1] == '.' and len(liste[2]) == 2:
         return True
-    else:
-        return False
+    return False
 
 def estArgent(liste):
+    """ Attend un format ['[0-9]*', ',', '[0-9][0-9]'] """
     if len(liste) < 3:
         return False
     if liste[-2] == ',':
         return True
-    else:
-        return False
+    return False
 
 def list2date(liste, annee, mois):
     """renvoie un string"""
@@ -179,8 +235,9 @@ print('*   Convertisseur de relevés bancaires BNP Paribas   *')
 print('********************  PDF -> CSV  ********************\n')
 chemin=os.getcwd()
 fichiers = os.listdir(chemin)
-if not "pdftotext.exe" in fichiers:
-    print("Fichier pdftotext.exe absent !")
+
+if shutil.which(PDFTOTEXT) is None:
+    print("Fichier {} absent !".format(PDFTOTEXT))
     input("Bye bye :(")
     exit()
 mes_pdfs = filtrer(fichiers, 'pdf')
@@ -234,7 +291,7 @@ for txt in deja_en_txt:
 
 # on efface les fichiers TXT
 if len(temp_list) :
-    print("[txt-> x ] Nettoyage\n")
+    print"[txt-> x ] Nettoyage\n")
     for txt in temp_list:
         os.remove(txt)
 
