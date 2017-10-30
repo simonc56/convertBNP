@@ -23,10 +23,14 @@ PREFIXE_COMTE = "RCHQ_101_300040012300001234567_"
 PREFIXE_COMPTE = "RLV_CHQ_300040181600000906809_"
 
 CSV_SEP        = ";"
+deja_en_csv    = ""
 
-import os, subprocess, shutil
-import re
+import argparse, os, re, subprocess, shutil, sys 
 pattern = re.compile('(\W)')
+
+from locale import *
+setlocale(LC_NUMERIC, '')
+from datetime import datetime as dt
 
 if os.name == 'nt':
     PDFTOTEXT = 'pdftotext.exe'
@@ -39,7 +43,7 @@ class uneOperation:
     """Une opération bancaire = une date, un descriptif,
     une valeur de débit, une valeur de crédit et un interrupteur de validité"""
 
-    def __init__(self, date="", desc="", value = "", debit="", credit=""):
+    def __init__(self, date="", desc="", value = "", debit=0.0, credit=0.0):
         self.date   = date
         self.desc   = desc
         self.value  = value
@@ -51,7 +55,7 @@ class uneOperation:
     def estRemplie(self):
         ## return len(self.date) >=10 and len(desc) > 0 and len(value) > 0 \
         ##    and (len(credit) > 0 or len(debit) > 0) 
-        return len(self.date) >=10 and (len(self.credit) > 0 or len(self.debit) > 0) 
+        return len(self.date) >=10 and (self.credit > 0.0 or self.debit > 0.0) 
 
 class UnReleve:
     """Un relevé de compte est une liste d'opérations bancaires
@@ -64,7 +68,7 @@ class UnReleve:
         """Ajoute une opération à la fin de la liste du relevé bancaire"""
         self.liste.append(Ope)
 
-    def ajoute_from_TXT(self, fichier_txt, annee, mois):
+    def ajoute_from_TXT(self, fichier_txt, annee, mois, verbosity=False):
         """Parse un fichier TXT pour en extraire les
         opérations bancaires et les mettre dans le relevé"""
         print('[txt->   ] Lecture    : '+fichier_txt)
@@ -76,12 +80,38 @@ class UnReleve:
                 if monnaie:
                     monnaie = monnaie.group(1)
                     break
+            # à présent, en-tête et SOLDE  / Date /valeur        
+            for ligne in file:
+                if re.search('Date\s*Nature\s*des\*', ligne, re.IGNORECASE): continue
+                if re.search('Solde\s*', ligne, re.IGNORECASE): break
             
+            operation = ligne.split()
+            for num, date in enumerate(operation):
+                try:
+                    basedate = dt.strptime(date, '%d.%m.%Y').strftime('%d/%m/%Y')
+                    break;
+                except ValueError as e:
+                    continue
+            
+            # montant ?
+            la_valeur = atof(''.join(operation[num+1:]))
+            ligne = ' '.join(operation[:num+1])
+
+            # dans quel sens ?        
+            if re.match('crediteur', operation[1], re.IGNORECASE):
+                Ope = uneOperation(basedate, ligne, "", 0.0, la_valeur)
+            elif re.match('debiteur', operation[1], re.IGNORECASE):
+                Ope = uneOperation(basedate, ligne, "", la_valeur, 0.0)
+            else:
+                raise ValueError(ligne+"ne peut pas être interprétée")
+            # crée une entrée avec le solde initial
+            self.ajoute(Ope)    
+
             Ope = uneOperation()
             date = ""
             operation = []
             num = -1
-            Table = faux
+            Table = False
             vide = 0
 
             for ligne in file:
@@ -89,15 +119,17 @@ class UnReleve:
                 if len(ligne) < 2:           # ligne vide, trait du tableau
                     vide = vide + 1
                     if vide > 2:
-                        Table = Faux
+                        Table = False
                         if Ope.estRemplie():         # on ajoute la précédente 
                             self.ajoute(Ope)          # opération si elle est valide     
                             Ope = uneOperation()
                             date = ""
                             operation = []
-                if Table==Faux
-            
-                print('{}({}): {}'.format(num, len(ligne), ligne))
+                if Table == False:
+                    pass
+                
+                if verbosity:    
+                    print('{}({}): {}'.format(num, len(ligne), ligne))
                 
                 date_ou_pas = ligne[:12].split()  # premier caractères de la ligne (date?)
                 if 1 == len(date_ou_pas):
@@ -125,11 +157,15 @@ class UnReleve:
                     la_date     = list2date(date, annee, mois)
                     Ope.date = la_date
                 if estArgent(dernier):
-                    la_valeur   = list2valeur(dernier) 
-                    if len(ligne) < 180:
-                        Ope.credit = la_valeur;
-                    else:
-                        Ope.debit = la_valeur;
+                    la_valeur   = list2valeur(dernier)
+                    try:
+                        if len(ligne) < 180:
+                            Ope.credit = atof(la_valeur)
+                        else:
+                            Ope.debit = atof(la_valeur)
+                    except ValueError as e:
+                        print('Failed to convert {} to a float: {}'.format(la_valeur, e))
+                            
             if Ope.estRemplie():         # on ajoute la précédente 
                 self.ajoute(Ope)          # opération si elle est valide     
 
@@ -142,9 +178,9 @@ class UnReleve:
         if not filename in deja_en_csv:
             print('[   ->csv] Export     : '+filename)
             with open(filename, "w") as file:
-                file.write("Date"+CSV_SEP+"Opération"+CSV_SEP+"Débit"+CSV_SEP+"Crédit\n")
+                file.write("Date"+CSV_SEP+"Débit"+CSV_SEP+"Crédit"+CSV_SEP+"Opération\n")
                 for Ope in self.liste:
-                    file.write(Ope.date+CSV_SEP+Ope.desc+CSV_SEP+Ope.debit+CSV_SEP+Ope.credit+"\n")
+                    file.write(Ope.date+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
                 file.close()
 
 def extraction_PDF(pdf_file, deja_en_txt, temp):
@@ -185,8 +221,8 @@ def list2valeur(liste):
     return "".join(liste_ok)
 
 def filtrer(liste, filetype):
-    """Renvoie les fichiers qui correspondent à l'estension donnée en paramètre"""
-    files = [fich for fich in liste if str.lower(fich[-3::])==filetype]
+    """Renvoie les fichiers qui correspondent à l'extension donnée en paramètre"""
+    files = [fich for fich in liste if fich[-3::].lower()==filetype]
     return files
 
 def mois_dispos(liste):
@@ -229,76 +265,93 @@ def affiche(liste):
     print("")
 
 # On demarre ici
+def main(*args, **kwargs):
+    print('\n******************************************************')
+    print('*   Convertisseur de relevés bancaires BNP Paribas   *')
+    print('********************  PDF -> CSV  ********************\n')
 
-print('\n******************************************************')
-print('*   Convertisseur de relevés bancaires BNP Paribas   *')
-print('********************  PDF -> CSV  ********************\n')
-chemin=os.getcwd()
-fichiers = os.listdir(chemin)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verbosity", help="increase output verbosity")
+    parser.add_argument("--prefixe", help="prefixe des fichiers à traiter")
+    myargs = parser.parse_args()
 
-if shutil.which(PDFTOTEXT) is None:
-    print("Fichier {} absent !".format(PDFTOTEXT))
-    input("Bye bye :(")
-    exit()
-mes_pdfs = filtrer(fichiers, 'pdf')
-deja_en_txt = filtrer(fichiers, 'txt')
-deja_en_csv = filtrer(fichiers, 'csv')
+    if myargs.prefixe:
+        PREFIXE_COMPTE = myargs.prefixe
 
-mes_mois_disponibles = mois_dispos(mes_pdfs)
-mes_mois_deja_en_txt = mois_dispos(deja_en_txt)
+    chemin = os.getcwd()
+    fichiers = os.listdir(chemin)
+    
+    if shutil.which(PDFTOTEXT) is None:
+        print("Fichier {} absent !".format(PDFTOTEXT))
+        input("Bye bye :(")
+        exit()
 
-if len(mes_mois_disponibles) == 0:
-    print("Il n'y a pas de relevés de compte en PDF dans ce répertoire")
-    print("correspondant au préfixe "+PREFIXE_COMPTE)
-    print("\nIl faut placer les fichiers convertBNP.py et pdftotext.exe")
-    print("à côté des fichiers de relevé de compte en PDF et adapter")
-    print("la ligne 18 (PREFIXE_COMPTE = XXXXX) du fichier convertBNP.py")
-    print("pour la faire correspondre à votre numéro de compte.\n")
-    input("Bye bye :(")
-    exit()
-affiche(mes_mois_disponibles)
+    mes_pdfs = filtrer(fichiers, 'pdf')
+    deja_en_txt = filtrer(fichiers, 'txt')
+    deja_en_csv = filtrer(fichiers, 'csv')
 
-touch = 0
-temp_list = []
+    mes_mois_disponibles = mois_dispos(mes_pdfs)
+    mes_mois_deja_en_txt = mois_dispos(deja_en_txt)
 
-# on convertit tous les nouveaux relevés PDF en TXT sauf si CSV deja dispo
-for releve in mes_pdfs:
-    if releve[:len(PREFIXE_COMPTE)] == PREFIXE_COMPTE:
-        annee = releve[len(PREFIXE_COMPTE):len(PREFIXE_COMPTE)+4]
-        mois  = releve[len(PREFIXE_COMPTE)+4:len(PREFIXE_COMPTE)+6]
-        csv = PREFIXE_CSV+annee+'-'+mois+".csv"
-        if not csv in deja_en_csv:
-            touch = touch + 1
-            extraction_PDF(releve, deja_en_txt, temp_list)
-if touch != 0:
-    print("")
+    if len(mes_mois_disponibles) == 0:
+        print("Il n'y a pas de relevés de compte en PDF dans ce répertoire")
+        print("correspondant au préfixe "+PREFIXE_COMPTE)
+        print("\nIl faut placer les fichiers convertBNP.py et pdftotext.exe")
+        print("à côté des fichiers de relevé de compte en PDF et adapter")
+        print("la ligne 18 (PREFIXE_COMPTE = XXXXX) du fichier convertBNP.py")
+        print("pour la faire correspondre à votre numéro de compte.\n")
+        input("Bye bye :(")
+        exit()
+    
+    affiche(mes_mois_disponibles)
+    touch = 0
+    temp_list = []
 
-# on remet à jour la liste de TXT
-fichiers = os.listdir(chemin)
-deja_en_txt = filtrer(fichiers, 'txt')
-mes_mois_deja_en_txt = mois_dispos(deja_en_txt)
+    # on convertit tous les nouveaux relevés PDF en TXT sauf si CSV deja dispo
+    for releve in mes_pdfs:
+        if releve[:len(PREFIXE_COMPTE)] == PREFIXE_COMPTE:
+            datefichier = releve.split('_')[-2]
+            annee = datefichier[:-4]
+            mois  = datefichier[-4:-2]
+            csv = PREFIXE_CSV+annee+'-'+mois+".csv"
+            if not csv in deja_en_csv:
+                touch = touch + 1
+                extraction_PDF(releve, deja_en_txt, temp_list)
+    if touch != 0:
+        print("")
 
-# on convertit tous les nouveaux TXT en CSV
-for txt in deja_en_txt:
-    if txt[:len(PREFIXE_COMPTE)] == PREFIXE_COMPTE:
-        annee = txt[len(PREFIXE_COMPTE):len(PREFIXE_COMPTE)+4]
-        mois  = txt[len(PREFIXE_COMPTE)+4:len(PREFIXE_COMPTE)+6]
-        csv = PREFIXE_CSV+annee+'-'+mois+".csv"
-        if not csv in deja_en_csv:
-            releve = UnReleve()
-            releve.ajoute_from_TXT(txt, annee, mois)
-            releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois)
+    # on remet à jour la liste de TXT
+    fichiers = os.listdir(chemin)
+    deja_en_txt = filtrer(fichiers, 'txt')
+    mes_mois_deja_en_txt = mois_dispos(deja_en_txt)
 
-# on efface les fichiers TXT
-if len(temp_list) :
-    print"[txt-> x ] Nettoyage\n")
-    for txt in temp_list:
-        os.remove(txt)
+    # on convertit tous les nouveaux TXT en CSV
+    for txt in deja_en_txt:
+        if txt[:len(PREFIXE_COMPTE)] == PREFIXE_COMPTE:
+            datefichier = releve.split('_')[-2]
+            annee = datefichier[:-4]
+            mois  = datefichier[-4:-2]
+            csv = PREFIXE_CSV+annee+'-'+mois+".csv"
+            if not csv in deja_en_csv:
+                releve = UnReleve()
+                releve.ajoute_from_TXT(txt, annee, mois, myargs.verbosity)
+                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois)
 
-if touch == 0:
-    input("Pas de nouveau relevé. Bye bye.")
-else:
-    print(str(touch)+" relevés de comptes convertis.")
-    input("Terminé. Bye bye.")
+    # on efface les fichiers TXT
+    if len(temp_list) :
+        print("[txt-> x ] Nettoyage\n")
+        for txt in temp_list:
+            os.remove(txt)
 
-# EOF
+    if touch == 0:
+        input("Pas de nouveau relevé. Bye bye.")
+    else:
+        print(str(touch)+" relevés de comptes convertis.")
+        input("Terminé. Bye bye.")
+        
+    # EOF
+
+    return 0
+
+if __name__== "__main__": 
+    sys.exit(main(sys.argv[1:]))
