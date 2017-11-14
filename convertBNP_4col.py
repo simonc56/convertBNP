@@ -45,6 +45,8 @@ class uneOperation:
 
     def __init__(self, date="", desc="", value = "", debit=0.0, credit=0.0):
         self.date   = date
+        self.date_valeur = ""
+        self.date_oper = ""
         self.desc   = desc
         self.value  = value
         self.debit  = debit
@@ -96,12 +98,14 @@ class UnReleve:
             # montant ?
             la_valeur = atof(''.join(operation[num+1:]))
             ligne = ' '.join(operation[:num+1])
-
+            
             # dans quel sens ?        
             if re.match('crediteur', operation[1], re.IGNORECASE):
                 Ope = uneOperation(basedate, ligne, "", 0.0, la_valeur)
+                solde_init = la_valeur
             elif re.match('debiteur', operation[1], re.IGNORECASE):
                 Ope = uneOperation(basedate, ligne, "", la_valeur, 0.0)
+                solde_init = -la_valeur
             else:
                 raise ValueError(ligne+"ne peut pas être interprétée")
             # crée une entrée avec le solde initial
@@ -113,7 +117,8 @@ class UnReleve:
             num = -1
             Table = False
             vide = 0
-
+            somme_cred = 0.0 # To check sum of cred
+            somme_deb = 0.0  # To check sum of deb
             for ligne in file:
                 num = num+1
                 if len(ligne) < 2:           # ligne vide, trait du tableau
@@ -125,6 +130,11 @@ class UnReleve:
                             Ope = uneOperation()
                             date = ""
                             operation = []
+                    continue
+                
+                # this line ends the table
+                if re.match('.*?total des montants\s', ligne, re.IGNORECASE):
+                   break
                 if Table == False:
                     pass
                 
@@ -145,7 +155,17 @@ class UnReleve:
                         date_valeur = pattern.split(date_valeur[0])
                     if Ope.estRemplie():          # on ajoute la précédente 
                         l_operation = ' '.join(operation)
+                        # try to extract a date from it
                         Ope.desc = l_operation
+                        operation = l_operation.split()
+                        date_oper = ''
+                        for num, date in enumerate(operation):
+                            try:
+                                date_oper = dt.strptime(date, '%d/%m/%y').strftime('%d/%m/%Y')
+                                break;
+                            except ValueError as e:
+                                continue
+
                         self.ajoute(Ope)          # opération si elle est valide
                         Ope = uneOperation()
                     operation = []
@@ -155,19 +175,82 @@ class UnReleve:
     
                 if date : # si on a deja trouvé une date
                     la_date     = list2date(date, annee, mois)
+                    date = ""
+                    la_date_valeur  = list2date(date_valeur, annee, mois)
                     Ope.date = la_date
+                    Ope.data_valeur = la_date_valeur
+
                 if estArgent(dernier):
                     la_valeur   = list2valeur(dernier)
                     try:
                         if len(ligne) < 180:
                             Ope.credit = atof(la_valeur)
+                            somme_cred += Ope.credit
                         else:
                             Ope.debit = atof(la_valeur)
+                            somme_deb += Ope.debit
                     except ValueError as e:
                         print('Failed to convert {} to a float: {}'.format(la_valeur, e))
-                            
+            
+            # end of main table                
             if Ope.estRemplie():         # on ajoute la précédente 
                 self.ajoute(Ope)          # opération si elle est valide     
+            operation = ligne.split(); 
+            start= 3
+            count = 4
+            for elem in operation[count:]:
+                count = count + 1
+                if elem == ',':
+                   break
+            le_debit = ''.join(operation[start:count+1])
+            start = count + 1
+            count = start + 1
+            for elem in operation[count:]:
+                count = count + 1
+                if elem == ',':
+                   break
+            le_credit = ''.join(operation[start:count+1])
+            le_debit = atof(le_debit)
+            le_credit = atof(le_credit)
+            
+            # here, we have "solde .. au
+            for ligne in file:
+                if re.search('Solde\s*', ligne, re.IGNORECASE): break
+            
+            operation = ligne.split()
+            for num, date in enumerate(operation):
+                try:
+                    basedate = dt.strptime(date, '%d.%m.%Y').strftime('%d/%m/%Y')
+                    break;
+                except ValueError as e:
+                    continue
+            
+            # montant ?
+            la_valeur = atof(''.join(operation[num+1:]))
+            ligne = ' '.join(operation[:num+1])
+            
+            # dans quel sens ?        
+            if re.match('crediteur', operation[1], re.IGNORECASE):
+                Ope = uneOperation(basedate, ligne, "", 0.0, la_valeur)
+                solde_final = la_valeur
+            elif re.match('debiteur', operation[1], re.IGNORECASE):
+                Ope = uneOperation(basedate, ligne, "", la_valeur, 0.0)
+                solde_final = -la_valeur
+            else:
+                raise ValueError(ligne+"ne peut pas être interprétée")
+            # check that solde_deb = le_debit;
+            if abs(somme_deb  - le_debit) > .01:
+                #raise ValueError('La somme des débits {} n''est pas égale au débit totat {}'.format(somme_deb, le_debit))
+                print('La somme des débits {} n''est pas égale au débit totat {}'.format(somme_deb, le_debit))
+            # check that solde_cred = le_credit;
+            if abs(somme_cred  - le_credit) > .01:
+                #raise ValueError('La somme des crédits {} n''est pas égale au crédit totat {}'.format(somme_cred, le_credit))
+                print('La somme des crédits {} n''est pas égale au crédit totat {}'.format(somme_cred, le_credit))
+            # check that solde_init - le_credit + le_debit == solde_final
+            mouvements = solde_init - le_credit + le_debit
+            if abs(solde_final - mouvements) > .01:
+                #raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvement, solde_final))
+                print('La somme des mouvements n''arrive pas au solde final {}'.format(mouvements, solde_final))
 
     def genere_CSV(self, filename=""):
         """crée un fichier CSV qui contiendra les opérations du relevé
