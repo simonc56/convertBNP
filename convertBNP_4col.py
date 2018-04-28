@@ -19,13 +19,16 @@
 #
 # fichiers PDF de la forme RCHQ_101_300040012300001234567_20131026_2153.PDF
 
-PREFIXE_COMTE = "RCHQ_101_300040012300001234567_"
+PREFIXE_COMPTE = "RCHQ_101_300040012300001234567_"
 PREFIXE_COMPTE = "RLV_CHQ_300040181600000906809_"
 
 CSV_SEP        = ";"
 deja_en_csv    = ""
+deja_en_xlsx   = ""
 
 import argparse, os, re, subprocess, shutil, sys 
+import XlsxWriter
+
 pattern = re.compile('(\W)')
 
 from locale import *
@@ -54,10 +57,24 @@ class uneOperation:
         self.valide = True
         if not len(self.date) >= 10 or int(self.date[:2]) > 31 or int(self.date[3:4]) > 12:
             self.valide = False
-    def estRemplie(self):
+
+    def estRemplie(self, operation=[]):
         ## return len(self.date) >=10 and len(desc) > 0 and len(value) > 0 \
-        ##    and (len(credit) > 0 or len(debit) > 0) 
-        return len(self.date) >=10 and (self.credit > 0.0 or self.debit > 0.0) 
+        ##    and (len(credit) > 0 or len(debit) > 0)
+        resu = len(self.date) >=10 and (self.credit > 0.0 or self.debit > 0.0) 
+        if resu:
+            # this one is OK, fill its description
+            if len(operation):
+                if 0 == len(self.desc):
+                    self.desc = ' '.join(operation)
+                    for num, date in enumerate(operation):
+                        try:
+                            date_oper = dt.strptime(date, '%d/%m/%y').strftime('%d/%m/%Y')
+                            self.date_oper = date_oper
+                            break;
+                        except ValueError as e:
+                            continue                       
+        return resu
 
 class UnReleve:
     """Un relevé de compte est une liste d'opérations bancaires
@@ -108,12 +125,17 @@ class UnReleve:
                 solde_init = -la_valeur
             else:
                 raise ValueError(ligne+"ne peut pas être interprétée")
+
             # crée une entrée avec le solde initial
             self.ajoute(Ope)    
-
+            if verbosity:    
+                print('{}({}): {}'.format(num, len(ligne), ligne))
+                print('Solde initial: {}  au {}'.format(solde_init, basedate))
+                      
             Ope = uneOperation()
             date = ""
             operation = []
+            la_date = ""
             num = -1
             Table = False
             vide = 0
@@ -125,16 +147,19 @@ class UnReleve:
                     vide = vide + 1
                     if vide > 2:
                         Table = False
-                        if Ope.estRemplie():         # on ajoute la précédente 
-                            self.ajoute(Ope)          # opération si elle est valide     
-                            Ope = uneOperation()
-                            date = ""
-                            operation = []
+                        if len(operation) > 0:
+                            if Ope.estRemplie(operation): # on ajoute la précédente 
+                                self.ajoute(Ope)          # opération si elle est valide     
+                                Ope = uneOperation()
+                                date = ""
+                                la_date = ""
+                                operation = []
                     continue
                 
                 # this line ends the table
                 if re.match('.*?total des montants\s', ligne, re.IGNORECASE):
-                   break
+                    break;
+
                 if Table == False:
                     pass
                 
@@ -145,30 +170,33 @@ class UnReleve:
                 if 1 == len(date_ou_pas):
                     date_ou_pas = pattern.split(date_ou_pas[0])
                                                 
-                dernier = ligne[-14::].split()    # derniers caractètres (valeur?)
+                dernier = ligne[-22::].split()    # derniers caractères (valeur?)
                 if 1 == len(dernier):
                     dernier = pattern.split(dernier[0])
-
+                if estArgent(dernier):
+                    la_valeur   = list2valeur(dernier)
+                    try:
+                        if len(ligne) < 180:
+                            Ope.debit = atof(la_valeur)
+                            somme_deb += Ope.debit
+                        else:
+                            Ope.credit = atof(la_valeur)
+                            somme_cred += Ope.credit
+                    except ValueError as e:
+                        print('Failed to convert {} to a float: {}'.format(la_valeur, e))
+                    previous_ligne = ligne    
+                    ligne = ligne[:141] # truncate the money amount
+                    ligne = ligne.rstrip()
+                    
                 if estDate(date_ou_pas):          # est-ce une date
-                    date_valeur = ligne[132:142].split() # il y a aussi une date valeur
+                    date_valeur = ligne[-8:].split() # il y a aussi une date valeur
                     if 1 == len(date_valeur):
                         date_valeur = pattern.split(date_valeur[0])
-                    if Ope.estRemplie():          # on ajoute la précédente 
-                        l_operation = ' '.join(operation)
-                        # try to extract a date from it
-                        Ope.desc = l_operation
-                        operation = l_operation.split()
-                        date_oper = ''
-                        for num, date in enumerate(operation):
-                            try:
-                                date_oper = dt.strptime(date, '%d/%m/%y').strftime('%d/%m/%Y')
-                                break;
-                            except ValueError as e:
-                                continue
-
+                    if Ope.estRemplie(operation):          # on ajoute la précédente 
                         self.ajoute(Ope)          # opération si elle est valide
                         Ope = uneOperation()
-                    operation = []
+                    operation = []                # we are on a new op
+                    la_date =  ''
                     date = date_ou_pas
                     
                 operation.extend(ligne[12:64].split())   
@@ -176,27 +204,21 @@ class UnReleve:
                 if date : # si on a deja trouvé une date
                     la_date     = list2date(date, annee, mois)
                     date = ""
+                    if (len (date_valeur) < 3):
+                        print('date valeur too short ?')
+                        print(date_valeur)
+                        
                     la_date_valeur  = list2date(date_valeur, annee, mois)
                     Ope.date = la_date
-                    Ope.data_valeur = la_date_valeur
+                    Ope.date_valeur = la_date_valeur
 
-                if estArgent(dernier):
-                    la_valeur   = list2valeur(dernier)
-                    try:
-                        if len(ligne) < 180:
-                            Ope.credit = atof(la_valeur)
-                            somme_cred += Ope.credit
-                        else:
-                            Ope.debit = atof(la_valeur)
-                            somme_deb += Ope.debit
-                    except ValueError as e:
-                        print('Failed to convert {} to a float: {}'.format(la_valeur, e))
+                
             
             # end of main table                
-            if Ope.estRemplie():         # on ajoute la précédente 
+            if Ope.estRemplie(operation):         # on ajoute la précédente 
                 self.ajoute(Ope)          # opération si elle est valide     
             operation = ligne.split(); 
-            start= 3
+            start = 3
             count = 4
             for elem in operation[count:]:
                 count = count + 1
@@ -212,7 +234,7 @@ class UnReleve:
             le_credit = ''.join(operation[start:count+1])
             le_debit = atof(le_debit)
             le_credit = atof(le_credit)
-            
+    
             # here, we have "solde .. au
             for ligne in file:
                 if re.search('Solde\s*', ligne, re.IGNORECASE): break
@@ -237,35 +259,61 @@ class UnReleve:
                 Ope = uneOperation(basedate, ligne, "", la_valeur, 0.0)
                 solde_final = -la_valeur
             else:
-                raise ValueError(ligne+"ne peut pas être interprétée")
+                raise ValueError(ligne+" ne peut pas être interprétée")
             # check that solde_deb = le_debit;
             if abs(somme_deb  - le_debit) > .01:
-                #raise ValueError('La somme des débits {} n''est pas égale au débit totat {}'.format(somme_deb, le_debit))
-                print('La somme des débits {} n''est pas égale au débit totat {}'.format(somme_deb, le_debit))
+                raise ValueError('La somme des débits {} n''est pas égale au débit total {}'.format(somme_deb, le_debit))
+                print("La somme des débits {} n'est pas égale au débit totat {}".format(somme_deb, le_debit))
             # check that solde_cred = le_credit;
             if abs(somme_cred  - le_credit) > .01:
-                #raise ValueError('La somme des crédits {} n''est pas égale au crédit totat {}'.format(somme_cred, le_credit))
-                print('La somme des crédits {} n''est pas égale au crédit totat {}'.format(somme_cred, le_credit))
+                raise ValueError('La somme des crédits {} n''est pas égale au crédit totat {}'.format(somme_cred, le_credit))
+                print("La somme des crédits {} n'est pas égale au crédit total {}".format(somme_cred, le_credit))
             # check that solde_init - le_credit + le_debit == solde_final
-            mouvements = solde_init - le_credit + le_debit
+            mouvements = solde_init - le_debit + le_credit
             if abs(solde_final - mouvements) > .01:
-                #raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvement, solde_final))
-                print('La somme des mouvements n''arrive pas au solde final {}'.format(mouvements, solde_final))
+                raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvement, solde_final))
+                print("La somme des mouvements {} n'arrive pas au solde final {}".format(mouvements, solde_final))
+            # duplicate the current operation
+            OpeTot = uneOperation(basedate, "TOTAL DES MONTANTS", "", le_debit, le_credit)
+            OpeTot.desc = "TOTAL DES MONTANTS"
+            OpeTot.debit = le_debit
+            OpeTot.credit = le_credit
+            # dump it
+            self.ajoute(OpeTot)
+            
+            #crée une entrée avec le solde final   
+            self.ajoute(Ope)    
+            if verbosity:    
+                print('{}({}): {}'.format(num, len(ligne), ligne))
+                print('Solde final: {}  au {}'.format(solde_final, basedate))
+                
 
     def genere_CSV(self, filename=""):
         """crée un fichier CSV qui contiendra les opérations du relevé
         si ce CSV n'existe pas deja"""
         if filename == "":
             filename = self.nom
-        filename = filename + ".csv"
-        if not filename in deja_en_csv:
-            print('[   ->csv] Export     : '+filename)
-            with open(filename, "w") as file:
-                file.write("Date"+CSV_SEP+"Débit"+CSV_SEP+"Crédit"+CSV_SEP+"Opération\n")
+        filename_csv = filename + ".csv"
+        if not filename_csv in deja_en_csv:
+            print('[   ->csv] Export     : '+filename_csv)
+            with open(filename_csv, "w") as file:
+                file.write("Date"+CSV_SEP+"Date_Valeur"+CSV_SEP+"Date_Oper"+CSV_SEP+"Débit"+CSV_SEP+"Crédit"+CSV_SEP+"Opération\n")
                 for Ope in self.liste:
-                    file.write(Ope.date+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
+                    file.write(Ope.date+CSV_SEP+Ope.date_valeur+CSV_SEP+Ope.date_oper+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
                 file.close()
+        filename_xlsx = filename + ".xlsx"
+        if not filename_xlsx in deja_en_xlsx:
+            print('[   ->xlsx] Export     : '+filename_xlsx)
+            workbook = xlsxwriter.Workbook(filename_xlsx)
+            worksheet = workbook.add_worksheet()
+            worksheet.write_row('A1', ("Date", "Date_Valeur", "Date_Oper", "Débit", "Crédit", "Opération"));
+            row = 1;
+            for Ope in self.liste:
+                worksheet.write(row, 0, (Ope.date, Ope.date_valeur, Ope.date_oper, Ope.debit, Ope.credit, Ope.desc))
+                row = row + 1
 
+            workbook.close()
+            
 def extraction_PDF(pdf_file, deja_en_txt, temp):
     """Lit un relevé PDF et le convertit en fichier TXT du même nom
     s'il n'existe pas deja"""
@@ -293,6 +341,10 @@ def estArgent(liste):
 
 def list2date(liste, annee, mois):
     """renvoie un string"""
+    if (len(liste) < 3):
+        print ('line 297')
+        print (liste)
+        
     if mois == '01' and liste[2] == '12':
         return liste[0]+'/'+liste[2]+'/'+str(int(annee)-1)
     else:
@@ -358,9 +410,11 @@ def main(*args, **kwargs):
     parser.add_argument("--prefixe", help="prefixe des fichiers à traiter")
     myargs = parser.parse_args()
 
-    if myargs.prefixe:
-        PREFIXE_COMPTE = myargs.prefixe
-
+    # if myargs.prefixe:
+    #     PREFIXE_COMPTE = myargs.prefixe
+    # else:
+    #     PREFIXE_COMPTE = CSV_SEP
+        
     chemin = os.getcwd()
     fichiers = os.listdir(chemin)
     
@@ -372,6 +426,7 @@ def main(*args, **kwargs):
     mes_pdfs = filtrer(fichiers, 'pdf')
     deja_en_txt = filtrer(fichiers, 'txt')
     deja_en_csv = filtrer(fichiers, 'csv')
+    deja_en_xlsx = filtrer(fichiers, 'xlsx')
 
     mes_mois_disponibles = mois_dispos(mes_pdfs)
     mes_mois_deja_en_txt = mois_dispos(deja_en_txt)
@@ -389,7 +444,7 @@ def main(*args, **kwargs):
     affiche(mes_mois_disponibles)
     touch = 0
     temp_list = []
-
+       
     # on convertit tous les nouveaux relevés PDF en TXT sauf si CSV deja dispo
     for releve in mes_pdfs:
         if releve[:len(PREFIXE_COMPTE)] == PREFIXE_COMPTE:
@@ -397,7 +452,11 @@ def main(*args, **kwargs):
             annee = datefichier[:-4]
             mois  = datefichier[-4:-2]
             csv = PREFIXE_CSV+annee+'-'+mois+".csv"
+            xlsx= PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if not csv in deja_en_csv:
+                touch = touch + 1
+                extraction_PDF(releve, deja_en_txt, temp_list)
+            elif not xlsx in deja_en_xlsx:
                 touch = touch + 1
                 extraction_PDF(releve, deja_en_txt, temp_list)
     if touch != 0:
@@ -411,15 +470,20 @@ def main(*args, **kwargs):
     # on convertit tous les nouveaux TXT en CSV
     for txt in deja_en_txt:
         if txt[:len(PREFIXE_COMPTE)] == PREFIXE_COMPTE:
-            datefichier = releve.split('_')[-2]
+            datefichier = txt.split('_')[-2]
             annee = datefichier[:-4]
             mois  = datefichier[-4:-2]
             csv = PREFIXE_CSV+annee+'-'+mois+".csv"
+            xlsx= PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if not csv in deja_en_csv:
                 releve = UnReleve()
                 releve.ajoute_from_TXT(txt, annee, mois, myargs.verbosity)
                 releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois)
-
+            elif not xlsx in deja_en_xlsx:    
+                releve = UnReleve()
+                releve.ajoute_from_TXT(txt, annee, mois, myargs.verbosity)
+                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois)
+                
     # on efface les fichiers TXT
     if len(temp_list) :
         print("[txt-> x ] Nettoyage\n")
