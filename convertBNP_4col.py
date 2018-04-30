@@ -27,7 +27,7 @@ deja_en_csv    = ""
 deja_en_xlsx   = ""
 
 import argparse, os, re, subprocess, shutil, sys 
-import XlsxWriter
+import xlsxwriter
 
 pattern = re.compile('(\W)')
 
@@ -169,11 +169,19 @@ class UnReleve:
                 date_ou_pas = ligne[:12].split()  # premier caractères de la ligne (date?)
                 if 1 == len(date_ou_pas):
                     date_ou_pas = pattern.split(date_ou_pas[0])
-                                                
+
+                # si une ligne se termine par un montant, il faut l'extraire pour qu'il reste la
+                # date valeur
                 dernier = ligne[-22::].split()    # derniers caractères (valeur?)
                 if 1 == len(dernier):
                     dernier = pattern.split(dernier[0])
+
                 if estArgent(dernier):
+                    # si l'operation précédente est complète, on la sauve
+                    if Ope.estRemplie(operation): 
+                        self.ajoute(Ope)          # opération si elle est valide
+                        Ope = uneOperation()
+                        operation = []                # we are on a new op
                     la_valeur   = list2valeur(dernier)
                     try:
                         if len(ligne) < 180:
@@ -185,9 +193,9 @@ class UnReleve:
                     except ValueError as e:
                         print('Failed to convert {} to a float: {}'.format(la_valeur, e))
                     previous_ligne = ligne    
-                    ligne = ligne[:141] # truncate the money amount
+                    ligne = ligne[:145] # truncate the money amount
                     ligne = ligne.rstrip()
-                    
+                
                 if estDate(date_ou_pas):          # est-ce une date
                     date_valeur = ligne[-8:].split() # il y a aussi une date valeur
                     if 1 == len(date_valeur):
@@ -195,6 +203,7 @@ class UnReleve:
                     if Ope.estRemplie(operation):          # on ajoute la précédente 
                         self.ajoute(Ope)          # opération si elle est valide
                         Ope = uneOperation()
+
                     operation = []                # we are on a new op
                     la_date =  ''
                     date = date_ou_pas
@@ -211,9 +220,7 @@ class UnReleve:
                     la_date_valeur  = list2date(date_valeur, annee, mois)
                     Ope.date = la_date
                     Ope.date_valeur = la_date_valeur
-
                 
-            
             # end of main table                
             if Ope.estRemplie(operation):         # on ajoute la précédente 
                 self.ajoute(Ope)          # opération si elle est valide     
@@ -306,12 +313,26 @@ class UnReleve:
             print('[   ->xlsx] Export     : '+filename_xlsx)
             workbook = xlsxwriter.Workbook(filename_xlsx)
             worksheet = workbook.add_worksheet()
-            worksheet.write_row('A1', ("Date", "Date_Valeur", "Date_Oper", "Débit", "Crédit", "Opération"));
+            worksheet.set_column(0, 2, 12)
+            worksheet.set_column(3, 4, 10)
+            worksheet.set_column(5, 5, 64)
+            cell_format = workbook.add_format({'bold': True})
+            worksheet.write_row('A1', ["Date", "Date_Valeur", "Date_Oper", "Débit", "Crédit", "Opération"], cell_format);
             row = 1;
-            for Ope in self.liste:
-                worksheet.write(row, 0, (Ope.date, Ope.date_valeur, Ope.date_oper, Ope.debit, Ope.credit, Ope.desc))
+            for Ope in self.liste[:-2]:
+                worksheet.write_row(row, 0, [Ope.date, Ope.date_valeur, Ope.date_oper, Ope.debit, Ope.credit, Ope.desc])
                 row = row + 1
-
+            # generate a control formula
+            Ope = self.liste[-2]
+            worksheet.write(row, 0, Ope.date)
+            worksheet.write(row, 5, 'Somme de contrôle')
+            # EXELL formula are stored in english but displayed in locale
+            worksheet.write_formula(row, 3, '=SUM(D3:D'+str(row)+')')
+            worksheet.write_formula(row, 4, '=SUM(E3:E'+str(row)+')')
+            row = row + 1
+            for Ope in self.liste[-2:]:
+                worksheet.write_row(row, 0, [Ope.date, Ope.date_valeur, Ope.date_oper, Ope.debit, Ope.credit, Ope.desc])
+                row = row + 1
             workbook.close()
             
 def extraction_PDF(pdf_file, deja_en_txt, temp):
@@ -357,7 +378,7 @@ def list2valeur(liste):
 
 def filtrer(liste, filetype):
     """Renvoie les fichiers qui correspondent à l'extension donnée en paramètre"""
-    files = [fich for fich in liste if fich[-3::].lower()==filetype]
+    files = [fich for fich in liste if fich.split('.')[-1].lower() == filetype]
     return files
 
 def mois_dispos(liste):
