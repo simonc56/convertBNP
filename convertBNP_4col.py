@@ -20,11 +20,13 @@
 # fichiers PDF de la forme RCHQ_101_300040012300001234567_20131026_2153.PDF
 
 PREFIXE_COMPTE = "RCHQ_101_300040012300001234567_"
-PREFIXE_COMPTE = "RLV_CHQ_300040181600000906809_"
+PREFIXE_COMPTE = "300040181600000906809"
 
 CSV_SEP        = ";"
 deja_en_csv    = ""
 deja_en_xlsx   = ""
+
+import pdb
 
 import argparse, os, re, subprocess, shutil, sys 
 import xlsxwriter
@@ -131,7 +133,8 @@ class UnReleve:
             if verbosity:    
                 print('{}({}): {}'.format(num, len(ligne), ligne))
                 print('Solde initial: {}  au {}'.format(solde_init, basedate))
-                      
+                print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
+                                                                           Ope.debit, Ope.credit))      
             Ope = uneOperation()
             date = ""
             operation = []
@@ -141,6 +144,7 @@ class UnReleve:
             vide = 0
             somme_cred = 0.0 # To check sum of cred
             somme_deb = 0.0  # To check sum of deb
+            pdb.set_trace()
             for ligne in file:
                 num = num+1
                 if len(ligne) < 2:           # ligne vide, trait du tableau
@@ -150,6 +154,9 @@ class UnReleve:
                         if len(operation) > 0:
                             if Ope.estRemplie(operation): # on ajoute la précédente 
                                 self.ajoute(Ope)          # opération si elle est valide     
+                                if verbosity:    
+                                    print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
+                                                                                               Ope.debit, Ope.credit))      
                                 Ope = uneOperation()
                                 date = ""
                                 la_date = ""
@@ -158,6 +165,12 @@ class UnReleve:
                 
                 # this line ends the table
                 if re.match('.*?total des montants\s', ligne, re.IGNORECASE):
+                    if verbosity:    
+                        print('{}({}): {}'.format(num, len(ligne), ligne))
+                    break;
+                if re.match('.*?total des operations\s', ligne, re.IGNORECASE):
+                    if verbosity:    
+                        print('{}({}): {}'.format(num, len(ligne), ligne))
                     break;
 
                 if Table == False:
@@ -180,6 +193,9 @@ class UnReleve:
                     # si l'operation précédente est complète, on la sauve
                     if Ope.estRemplie(operation): 
                         self.ajoute(Ope)          # opération si elle est valide
+                        if verbosity:                                                       
+                            print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
+                                                                                       Ope.debit, Ope.credit))
                         Ope = uneOperation()
                         operation = []                # we are on a new op
                     la_valeur   = list2valeur(dernier)
@@ -202,6 +218,9 @@ class UnReleve:
                         date_valeur = pattern.split(date_valeur[0])
                     if Ope.estRemplie(operation):          # on ajoute la précédente 
                         self.ajoute(Ope)          # opération si elle est valide
+                        if verbosity:    
+                            print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
+                                                                                       Ope.debit, Ope.credit))      
                         Ope = uneOperation()
 
                     operation = []                # we are on a new op
@@ -232,21 +251,29 @@ class UnReleve:
                 
             # end of main table                
             if Ope.estRemplie(operation):         # on ajoute la précédente 
+                if verbosity:    
+                    print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
+                                                                               Ope.debit, Ope.credit))      
                 self.ajoute(Ope)          # opération si elle est valide     
+        
+            if verbosity:    
+                print('Exited main loop')
+                print('{}({}): {}'.format(num, len(ligne), ligne))
+
             operation = ligne.split(); 
             start = 3
             count = 4
             for elem in operation[count:]:
+                if ',' in elem:
+                    break
                 count = count + 1
-                if elem == ',':
-                   break
             le_debit = ''.join(operation[start:count+1])
             start = count + 1
             count = start + 1
             for elem in operation[count:]:
-                count = count + 1
-                if elem == ',':
+                if ',' in elem:
                    break
+                count = count + 1
             le_credit = ''.join(operation[start:count+1])
             try:
                 le_debit = atof(le_debit)
@@ -259,7 +286,8 @@ class UnReleve:
             
             # here, we have "solde .. au
             for ligne in file:
-                if re.search('Solde\s*', ligne, re.IGNORECASE): break
+                if re.search('Solde\s*', ligne, re.IGNORECASE): 
+                    break
             
             operation = ligne.split()
             for num, date in enumerate(operation):
@@ -270,9 +298,13 @@ class UnReleve:
                     continue
             
             # montant ?
-            la_valeur = atof(''.join(operation[num+1:]))
-            ligne = ' '.join(operation[:num+1])
-            
+            try:
+                la_valeur = atof(''.join(operation[num+1:]))
+                ligne = ' '.join(operation[:num+1])
+            except ValueError as e:
+                print(operation)
+                pdb.set_trace()
+
             # dans quel sens ?        
             if re.match('crediteur', operation[1], re.IGNORECASE):
                 Ope = uneOperation(basedate, ligne, "", 0.0, la_valeur)
@@ -284,17 +316,25 @@ class UnReleve:
                 raise ValueError(ligne+" ne peut pas être interprétée")
             # check that solde_deb = le_debit;
             if abs(somme_deb  - le_debit) > .01:
-                raise ValueError('La somme des débits {} n''est pas égale au débit total {}'.format(somme_deb, le_debit))
-                print("La somme des débits {} n'est pas égale au débit totat {}".format(somme_deb, le_debit))
+                if verbosity: 
+                    print("La somme des débits {} n'est pas égale au débit totat {}".format(somme_deb, le_debit))         
+                else:
+                    raise ValueError('La somme des débits {} n''est pas égale au débit total {}'.format(somme_deb, le_debit))
+
             # check that solde_cred = le_credit;
             if abs(somme_cred  - le_credit) > .01:
-                raise ValueError('La somme des crédits {} n''est pas égale au crédit totat {}'.format(somme_cred, le_credit))
-                print("La somme des crédits {} n'est pas égale au crédit total {}".format(somme_cred, le_credit))
+                if verbosity: 
+                    print("La somme des crédits {} n'est pas égale au crédit total {}".format(somme_cred, le_credit))               
+                else:                    
+                    raise ValueError('La somme des crédits {} n''est pas égale au crédit totat {}'.format(somme_cred, le_credit))                    
             # check that solde_init - le_credit + le_debit == solde_final
             mouvements = solde_init - le_debit + le_credit
             if abs(solde_final - mouvements) > .01:
-                raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvement, solde_final))
-                print("La somme des mouvements {} n'arrive pas au solde final {}".format(mouvements, solde_final))
+                if verbosity: 
+                    print("La somme des mouvements {} n'arrive pas au solde final {}".format(mouvements, solde_final))      
+                else:      
+                    raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvement, solde_final))
+            
             # duplicate the current operation
             OpeTot = uneOperation(basedate, "TOTAL DES MONTANTS", "", le_debit, le_credit)
             OpeTot.desc = "TOTAL DES MONTANTS"
@@ -303,7 +343,7 @@ class UnReleve:
             # dump it
             self.ajoute(OpeTot)
             
-            #crée une entrée avec le solde final   
+            # crée une entrée avec le solde final   
             self.ajoute(Ope)    
             if verbosity:    
                 print('{}({}): {}'.format(num, len(ligne), ligne))
@@ -326,6 +366,7 @@ class UnReleve:
         filename_xlsx = filename + ".xlsx"
         if not filename_xlsx in deja_en_xlsx:
             print('[   ->xlsx] Export     : '+filename_xlsx)
+            pdb.set_trace()
             workbook = xlsxwriter.Workbook(filename_xlsx)
             worksheet = workbook.add_worksheet()
             worksheet.set_column(0, 2, 12)
@@ -401,16 +442,25 @@ def mois_dispos(liste):
     [['2012', '10', '11', '12']['2013', '01', '02', '03', '04']]"""
     liste_tout = []
     les_annees = []
+
     for releve in liste:
-        if releve[:len(PREFIXE_COMPTE)] == PREFIXE_COMPTE:
-            annee = releve[len(PREFIXE_COMPTE):len(PREFIXE_COMPTE)+4]
-            mois  = releve[len(PREFIXE_COMPTE)+4:len(PREFIXE_COMPTE)+6]
+        operation = releve.split('.') # strip the extension
+        operation = operation[0].split('_') # get chunks
+        if "FRAIS" in operation[0]:
+            continue
+        for num, val in enumerate(operation[1:]):
+            if PREFIXE_COMPTE not in val:
+                continue
+            # the next element contains the date 
+            annee = operation[num+2][0:4]
+            mois  = operation[num+2][4:6]
             if not annee in les_annees:
                 les_annees.append(annee)
                 liste_annee = [annee, mois]
                 liste_tout.append(liste_annee)
             else:
                 liste_tout[les_annees.index(annee)].append(mois)
+    liste_tout.sort()            
     return liste_tout
 
 # fonction inutilisée
