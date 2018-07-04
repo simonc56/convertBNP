@@ -197,7 +197,7 @@ class UnReleve:
                     ligne = ligne.rstrip()
                 
                 if estDate(date_ou_pas):          # est-ce une date
-                    date_valeur = ligne[-8:].split() # il y a aussi une date valeur
+                    date_valeur = ligne[85:90].split() # il y a aussi une date valeur
                     if 1 == len(date_valeur):
                         date_valeur = pattern.split(date_valeur[0])
                     if Ope.estRemplie(operation):          # on ajoute la précédente 
@@ -213,10 +213,19 @@ class UnReleve:
                 if date : # si on a deja trouvé une date
                     la_date     = list2date(date, annee, mois)
                     date = ""
-                    if (len (date_valeur) < 3):
-                        print('date valeur too short ?')
-                        print(date_valeur)
-                        
+                    if (len(date_valeur) < 3):
+                        # there are left and right pages
+                        date_valeur = ligne[109:114].split() # il y a aussi une date valeur
+                        if 1 == len(date_valeur):
+                            date_valeur = pattern.split(date_valeur[0])
+                            
+                    if (len(date_valeur) < 3):
+                        print('line 223');
+                        print(ligne)
+                        print(ligne[85:91])
+                        print(ligne[109:114])
+                        print(date_valeur);
+
                     la_date_valeur  = list2date(date_valeur, annee, mois)
                     Ope.date = la_date
                     Ope.date_valeur = la_date_valeur
@@ -239,9 +248,15 @@ class UnReleve:
                 if elem == ',':
                    break
             le_credit = ''.join(operation[start:count+1])
-            le_debit = atof(le_debit)
-            le_credit = atof(le_credit)
-    
+            try:
+                le_debit = atof(le_debit)
+            except ValueError as e:
+                print('Failed to convert {} to a float: {}'.format(le_debit, e))
+            try:
+                le_credit = atof(le_credit)
+            except ValueError as e:
+                print('Failed to convert {} to a float: {}'.format(le_debit, e))
+            
             # here, we have "solde .. au
             for ligne in file:
                 if re.search('Solde\s*', ligne, re.IGNORECASE): break
