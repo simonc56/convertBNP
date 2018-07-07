@@ -533,10 +533,15 @@ def main(*args, **kwargs):
        
     # on convertit tous les nouveaux relevés PDF en TXT sauf si CSV deja dispo
     for releve in mes_pdfs:
-        if releve[:len(PREFIXE_COMPTE)] == PREFIXE_COMPTE:
-            datefichier = releve.split('_')[-2]
-            annee = datefichier[:-4]
-            mois  = datefichier[-4:-2]
+        operation = releve.split('.') # strip the extension
+        operation = operation[0].split('_') # get chunks
+        if "FRAIS" in operation[0]:
+            continue
+        for num, val in enumerate(operation[1:]):
+            if PREFIXE_COMPTE not in val:
+                continue
+            annee = operation[num+2][0:4]
+            mois  = operation[num+2][4:6]
             csv = PREFIXE_CSV+annee+'-'+mois+".csv"
             xlsx= PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if not csv in deja_en_csv:
@@ -555,10 +560,16 @@ def main(*args, **kwargs):
 
     # on convertit tous les nouveaux TXT en CSV
     for txt in deja_en_txt:
-        if txt[:len(PREFIXE_COMPTE)] == PREFIXE_COMPTE:
-            datefichier = txt.split('_')[-2]
-            annee = datefichier[:-4]
-            mois  = datefichier[-4:-2]
+        operation = txt.split('.') # strip the extension
+        operation = operation[0].split('_') # get chunks
+        if "FRAIS" in operation[0]:
+            continue
+        for num, val in enumerate(operation[1:]):
+            if PREFIXE_COMPTE not in val:
+                continue
+            # the next element contains the date
+            annee = operation[num+2][0:4]
+            mois  = operation[num+2][4:6]
             csv = PREFIXE_CSV+annee+'-'+mois+".csv"
             xlsx= PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if not csv in deja_en_csv:
