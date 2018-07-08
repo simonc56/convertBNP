@@ -103,7 +103,10 @@ class UnReleve:
                     break
             # à présent, en-tête et SOLDE  / Date /valeur        
             for ligne in file:
-                if re.search('Date\s*Nature\s*des\*', ligne, re.IGNORECASE): continue
+                if re.search('Date\s*Nature\s*des\*', ligne, re.IGNORECASE): 
+                    Table = True        # where back analysing data
+                    vide = 0;
+                    continue
                 if re.search('Solde\s*', ligne, re.IGNORECASE): break
             
             operation = ligne.split()
@@ -144,7 +147,7 @@ class UnReleve:
             vide = 0
             somme_cred = 0.0 # To check sum of cred
             somme_deb = 0.0  # To check sum of deb
-            pdb.set_trace()
+            ## pdb.set_trace()
             for ligne in file:
                 num = num+1
                 if len(ligne) < 2:           # ligne vide, trait du tableau
@@ -174,7 +177,7 @@ class UnReleve:
                     break;
 
                 if Table == False:
-                    pass
+                    continue
                 
                 if verbosity:    
                     print('{}({}): {}'.format(num, len(ligne), ligne))
@@ -185,7 +188,14 @@ class UnReleve:
 
                 # si une ligne se termine par un montant, il faut l'extraire pour qu'il reste la
                 # date valeur
-                dernier = ligne[-22::].split()    # derniers caractères (valeur?)
+                if "DRFIP OCCITANIE" in ligne:
+                    pdb.set_trace()
+                if "PRLV SEPA AMERICAN EXPRESS CARTE-FRANCE" in ligne:
+                    pdb.set_trace()
+
+                dernier = pattern.split(ligne[-22:].strip())
+                # this was 
+                # dernier = ligne[-22:].split()    # derniers caractères (valeur?)
                 if 1 == len(dernier):
                     dernier = pattern.split(dernier[0])
 
@@ -213,8 +223,9 @@ class UnReleve:
                     ligne = ligne.rstrip()
                 
                 if estDate(date_ou_pas):          # est-ce une date
-                    date_valeur = ligne[85:90].split() # il y a aussi une date valeur
+                    date_valeur = ligne[-6:].split() # il y a aussi une date valeur
                     if 1 == len(date_valeur):
+                        # pdb.set_trace()
                         date_valeur = pattern.split(date_valeur[0])
                     if Ope.estRemplie(operation):          # on ajoute la précédente 
                         self.ajoute(Ope)          # opération si elle est valide
@@ -233,10 +244,11 @@ class UnReleve:
                     la_date     = list2date(date, annee, mois)
                     date = ""
                     if (len(date_valeur) < 3):
-                        # there are left and right pages
-                        date_valeur = ligne[109:114].split() # il y a aussi une date valeur
-                        if 1 == len(date_valeur):
-                            date_valeur = pattern.split(date_valeur[0])
+                        date_valeur = dernier
+                        # # there are left and right pages
+                        # date_valeur = ligne[109:114].split() # il y a aussi une date valeur
+                        # if 1 == len(date_valeur):
+                        #     date_valeur = pattern.split(date_valeur[0])
                             
                     if (len(date_valeur) < 3):
                         print('line 223');
@@ -244,6 +256,7 @@ class UnReleve:
                         print(ligne[85:91])
                         print(ligne[109:114])
                         print(date_valeur);
+                        pdb.set_trace()
 
                     la_date_valeur  = list2date(date_valeur, annee, mois)
                     Ope.date = la_date
@@ -259,21 +272,24 @@ class UnReleve:
             if verbosity:    
                 print('Exited main loop')
                 print('{}({}): {}'.format(num, len(ligne), ligne))
+                pdb.set_trace()
 
             operation = ligne.split(); 
             start = 3
             count = 4
-            for elem in operation[count:]:
+            for num, elem in enumerate(operation[count:]):
+                count = count + 1
                 if ',' in elem:
                     break
-                count = count + 1
+                
             le_debit = ''.join(operation[start:count+1])
             start = count + 1
             count = start + 1
             for elem in operation[count:]:
+                count = count + 1                
                 if ',' in elem:
                    break
-                count = count + 1
+                
             le_credit = ''.join(operation[start:count+1])
             try:
                 le_debit = atof(le_debit)
@@ -318,6 +334,7 @@ class UnReleve:
             if abs(somme_deb  - le_debit) > .01:
                 if verbosity: 
                     print("La somme des débits {} n'est pas égale au débit totat {}".format(somme_deb, le_debit))         
+                    pdb.set_trace()
                 else:
                     raise ValueError('La somme des débits {} n''est pas égale au débit total {}'.format(somme_deb, le_debit))
 
@@ -325,6 +342,7 @@ class UnReleve:
             if abs(somme_cred  - le_credit) > .01:
                 if verbosity: 
                     print("La somme des crédits {} n'est pas égale au crédit total {}".format(somme_cred, le_credit))               
+                    pdb.set_trace()
                 else:                    
                     raise ValueError('La somme des crédits {} n''est pas égale au crédit totat {}'.format(somme_cred, le_credit))                    
             # check that solde_init - le_credit + le_debit == solde_final
@@ -332,6 +350,7 @@ class UnReleve:
             if abs(solde_final - mouvements) > .01:
                 if verbosity: 
                     print("La somme des mouvements {} n'arrive pas au solde final {}".format(mouvements, solde_final))      
+                    pdb.set_trace()
                 else:      
                     raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvement, solde_final))
             
@@ -366,7 +385,7 @@ class UnReleve:
         filename_xlsx = filename + ".xlsx"
         if not filename_xlsx in deja_en_xlsx:
             print('[   ->xlsx] Export     : '+filename_xlsx)
-            pdb.set_trace()
+            ## pdb.set_trace()
             workbook = xlsxwriter.Workbook(filename_xlsx)
             worksheet = workbook.add_worksheet()
             worksheet.set_column(0, 2, 12)
@@ -396,6 +415,7 @@ def extraction_PDF(pdf_file, deja_en_txt, temp):
     s'il n'existe pas deja"""
     txt_file = pdf_file[:-3]+"txt"
     if not txt_file in deja_en_txt:
+        pdb.set_trace()
         print('[pdf->txt] Conversion : '+pdf_file)
         subprocess.call([PDFTOTEXT, '-layout', pdf_file, txt_file])
         temp.append(txt_file)
@@ -421,7 +441,8 @@ def list2date(liste, annee, mois):
     if (len(liste) < 3):
         print ('line 297')
         print (liste)
-        
+        pdb.set_trace() 
+       
     if mois == '01' and liste[2] == '12':
         return liste[0]+'/'+liste[2]+'/'+str(int(annee)-1)
     else:
@@ -429,7 +450,7 @@ def list2date(liste, annee, mois):
 
 def list2valeur(liste):
     """renvoie un string"""
-    liste_ok = [x for x in liste if x != '.']
+    liste_ok = [x.strip() for x in liste if x != '.']
     return "".join(liste_ok)
 
 def filtrer(liste, filetype):
