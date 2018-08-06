@@ -33,8 +33,8 @@ import xlsxwriter
 
 pattern = re.compile('(\W)')
 
-from locale import *
-setlocale(LC_NUMERIC, '')
+import locale 
+locale.setlocale(locale.LC_NUMERIC, '')
 from datetime import datetime as dt
 
 if os.name == 'nt':
@@ -95,6 +95,13 @@ class UnReleve:
         print('[txt->   ] Lecture    : '+fichier_txt)
 
         with open(fichier_txt) as file:
+            Table = False
+            vide = 0
+            page_width = 0
+       
+            if verbosity > 1:    
+                pdb.set_trace()
+
             # ignore les lignes avec les coordonnées et le blabla
             for ligne in file:
                 monnaie = re.search('Monnaie du compte\s*: (\w*)', ligne)
@@ -103,9 +110,14 @@ class UnReleve:
                     break
             # à présent, en-tête et SOLDE  / Date /valeur        
             for ligne in file:
-                if re.search('Date\s*Nature\s*des\*', ligne, re.IGNORECASE): 
+                if re.search('Date\s*Nature\s*des\s*', ligne, re.IGNORECASE): 
                     Table = True        # where back analysing data
-                    vide = 0;
+                    vide = 0
+                    Date_pos = ligne.find('Date')
+                    Nature_pos = ligne.find('Nature')
+                    Valeur_pos = ligne.find('Valeur')
+                    Debit_pos = Valeur_pos + len('Valeur')
+                    page_width = len(ligne)
                     continue
                 if re.search('Solde\s*', ligne, re.IGNORECASE): break
             
@@ -113,12 +125,12 @@ class UnReleve:
             for num, date in enumerate(operation):
                 try:
                     basedate = dt.strptime(date, '%d.%m.%Y').strftime('%d/%m/%Y')
-                    break;
+                    break
                 except ValueError as e:
                     continue
             
             # montant ?
-            la_valeur = atof(''.join(operation[num+1:]))
+            la_valeur = locale.atof(''.join(operation[num+1:]))
             ligne = ' '.join(operation[:num+1])
             
             # dans quel sens ?        
@@ -138,13 +150,16 @@ class UnReleve:
                 print('Solde initial: {}  au {}'.format(solde_init, basedate))
                 print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
                                                                            Ope.debit, Ope.credit))      
+                
+            if verbosity > 1:    
+                pdb.set_trace()
+
             Ope = uneOperation()
             date = ""
             operation = []
             la_date = ""
             num = -1
-            Table = False
-            vide = 0
+            
             somme_cred = 0.0 # To check sum of cred
             somme_deb = 0.0  # To check sum of deb
             ## pdb.set_trace()
@@ -152,7 +167,7 @@ class UnReleve:
                 num = num+1
                 if len(ligne) < 2:           # ligne vide, trait du tableau
                     vide = vide + 1
-                    if vide > 2:
+                    if vide > 2:                # trois lignes vides = fin de page
                         Table = False
                         if len(operation) > 0:
                             if Ope.estRemplie(operation): # on ajoute la précédente 
@@ -165,6 +180,18 @@ class UnReleve:
                                 la_date = ""
                                 operation = []
                     continue
+
+                if Table == False:
+                    # search for new page header -- compute actual page width
+                    if re.search('Date\s*Nature\s*des\s*', ligne, re.IGNORECASE): 
+                        Table = True        # where back analysing data
+                        vide = 0
+                        Date_pos = ligne.find('Date')
+                        Nature_pos = ligne.find('Nature')
+                        Valeur_pos = ligne.find('Valeur')
+                        Debit_pos = Valeur_pos + len('Valeur')
+                        page_width = len(ligne)
+                    continue
                 
                 # this line ends the table
                 if re.match('.*?total des montants\s', ligne, re.IGNORECASE):
@@ -175,24 +202,17 @@ class UnReleve:
                     if verbosity:    
                         print('{}({}): {}'.format(num, len(ligne), ligne))
                     break;
-
-                if Table == False:
-                    continue
                 
                 if verbosity:    
                     print('{}({}): {}'.format(num, len(ligne), ligne))
                 
-                date_ou_pas = ligne[:12].split()  # premier caractères de la ligne (date?)
+                vide = 0
+                date_ou_pas = ligne[Date_pos:Nature_pos].split()  # premier caractères de la ligne (date?)
                 if 1 == len(date_ou_pas):
                     date_ou_pas = pattern.split(date_ou_pas[0])
 
                 # si une ligne se termine par un montant, il faut l'extraire pour qu'il reste la
                 # date valeur
-                if "DRFIP OCCITANIE" in ligne:
-                    pdb.set_trace()
-                if "PRLV SEPA AMERICAN EXPRESS CARTE-FRANCE" in ligne:
-                    pdb.set_trace()
-
                 dernier = pattern.split(ligne[-22:].strip())
                 # this was 
                 # dernier = ligne[-22:].split()    # derniers caractères (valeur?)
@@ -210,22 +230,22 @@ class UnReleve:
                         operation = []                # we are on a new op
                     la_valeur   = list2valeur(dernier)
                     try:
-                        if len(ligne) < 180:
-                            Ope.debit = atof(la_valeur)
+                        # there are odds and even pages. That's odd
+                        if len(ligne) < page_width:
+                            Ope.debit = locale.atof(la_valeur)
                             somme_deb += Ope.debit
                         else:
-                            Ope.credit = atof(la_valeur)
+                            Ope.credit = locale.atof(la_valeur)
                             somme_cred += Ope.credit
                     except ValueError as e:
                         print('Failed to convert {} to a float: {}'.format(la_valeur, e))
                     previous_ligne = ligne    
-                    ligne = ligne[:145] # truncate the money amount
-                    ligne = ligne.rstrip()
+                    ligne = ligne[:Debit_pos] # truncate the money amount
                 
                 if estDate(date_ou_pas):          # est-ce une date
                     date_valeur = ligne[-6:].split() # il y a aussi une date valeur
                     if 1 == len(date_valeur):
-                        # pdb.set_trace()
+                        
                         date_valeur = pattern.split(date_valeur[0])
                     if Ope.estRemplie(operation):          # on ajoute la précédente 
                         self.ajoute(Ope)          # opération si elle est valide
@@ -238,18 +258,14 @@ class UnReleve:
                     la_date =  ''
                     date = date_ou_pas
                     
-                operation.extend(ligne[12:64].split())   
+                operation.extend(ligne[Nature_pos:Valeur_pos].split())   
     
                 if date : # si on a deja trouvé une date
                     la_date     = list2date(date, annee, mois)
                     date = ""
                     if (len(date_valeur) < 3):
                         date_valeur = dernier
-                        # # there are left and right pages
-                        # date_valeur = ligne[109:114].split() # il y a aussi une date valeur
-                        # if 1 == len(date_valeur):
-                        #     date_valeur = pattern.split(date_valeur[0])
-                            
+                                                    
                     if (len(date_valeur) < 3):
                         print('line 223');
                         print(ligne)
@@ -278,25 +294,27 @@ class UnReleve:
             start = 3
             count = 4
             for num, elem in enumerate(operation[count:]):
+                # pre-increment count as [start:count] goes one element
+                # before count
                 count = count + 1
                 if ',' in elem:
                     break
-                
-            le_debit = ''.join(operation[start:count+1])
-            start = count + 1
+
+            le_debit = ''.join(operation[start:count])
+            start = count
             count = start + 1
             for elem in operation[count:]:
-                count = count + 1                
+                count = count + 1         
                 if ',' in elem:
                    break
-                
-            le_credit = ''.join(operation[start:count+1])
+
+            le_credit = ''.join(operation[start:count])
             try:
-                le_debit = atof(le_debit)
+                le_debit = locale.atof(le_debit)
             except ValueError as e:
                 print('Failed to convert {} to a float: {}'.format(le_debit, e))
             try:
-                le_credit = atof(le_credit)
+                le_credit = locale.atof(le_credit)
             except ValueError as e:
                 print('Failed to convert {} to a float: {}'.format(le_debit, e))
             
@@ -315,7 +333,7 @@ class UnReleve:
             
             # montant ?
             try:
-                la_valeur = atof(''.join(operation[num+1:]))
+                la_valeur = locale.atof(''.join(operation[num+1:]))
                 ligne = ' '.join(operation[:num+1])
             except ValueError as e:
                 print(operation)
@@ -352,7 +370,7 @@ class UnReleve:
                     print("La somme des mouvements {} n'arrive pas au solde final {}".format(mouvements, solde_final))      
                     pdb.set_trace()
                 else:      
-                    raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvement, solde_final))
+                    raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvements, solde_final))
             
             # duplicate the current operation
             OpeTot = uneOperation(basedate, "TOTAL DES MONTANTS", "", le_debit, le_credit)
@@ -513,7 +531,7 @@ def main(*args, **kwargs):
     print('********************  PDF -> CSV  ********************\n')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--verbosity", help="increase output verbosity")
+    parser.add_argument("--verbosity", type=int, help="increase output verbosity")
     parser.add_argument("--prefixe", help="prefixe des fichiers à traiter")
     myargs = parser.parse_args()
 
