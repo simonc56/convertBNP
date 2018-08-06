@@ -31,10 +31,15 @@ import pdb
 import argparse, os, re, subprocess, shutil, sys 
 import xlsxwriter
 
-pattern = re.compile('(\W)')
+pattern = re.compile('(\W+)')
+monnaie_pat = re.compile('Monnaie du compte\s*: (\w*)')
+nature_pat = re.compile('D\s*ate\s+N\s*ature\s+des\s+')
+footer_pat = re.compile('BNP PARIBAS.*au capital')
 
 import locale 
 locale.setlocale(locale.LC_NUMERIC, '')
+# the decimal point in use
+dp = locale.localeconv()['decimal_point']
 from datetime import datetime as dt
 
 if os.name == 'nt':
@@ -75,7 +80,14 @@ class uneOperation:
                             self.date_oper = date_oper
                             break;
                         except ValueError as e:
-                            continue                       
+                            if 1 == num:  # du 020316
+                                try:
+                                    date_oper = dt.strptime(date, '%d%m%y').strftime('%d/%m/%Y')
+                                    self.date_oper = date_oper
+                                    break;
+                                except ValueError as e:
+                                    continue      
+                            continue                 
         return resu
 
 class UnReleve:
@@ -96,6 +108,7 @@ class UnReleve:
 
         with open(fichier_txt) as file:
             Table = False
+            NoOps = True
             vide = 0
             page_width = 0
        
@@ -104,22 +117,23 @@ class UnReleve:
 
             # ignore les lignes avec les coordonnées et le blabla
             for ligne in file:
-                monnaie = re.search('Monnaie du compte\s*: (\w*)', ligne)
+                monnaie = monnaie_pat.search(ligne)
                 if monnaie:
                     monnaie = monnaie.group(1)
                     break
             # à présent, en-tête et SOLDE  / Date /valeur        
             for ligne in file:
-                if re.search('Date\s*Nature\s*des\s*', ligne, re.IGNORECASE): 
+                if nature_pat.search(ligne): 
                     Table = True        # where back analysing data
-                    vide = 0
-                    Date_pos = ligne.find('Date')
-                    Nature_pos = ligne.find('Nature')
-                    Valeur_pos = ligne.find('Valeur')
-                    Debit_pos = Valeur_pos + len('Valeur')
+                    Date_pos = re.search('D\s*ate', ligne).start()
+                    Nature_pos = re.search('N\s*ature', ligne).start()
+                    Valeur_pos = re.search('V\s*aleur', ligne).start()
+                    Debit_pos = Valeur_pos + len('Valeur') + 1
+                    Credit_pos = re.search('C\s*rédit', ligne).start()
                     page_width = len(ligne)
                     continue
-                if re.search('Solde\s*', ligne, re.IGNORECASE): break
+                if re.search('SOLDE\s+', ligne): 
+                    break
             
             operation = ligne.split()
             for num, date in enumerate(operation):
@@ -162,34 +176,45 @@ class UnReleve:
             
             somme_cred = 0.0 # To check sum of cred
             somme_deb = 0.0  # To check sum of deb
+
             ## pdb.set_trace()
             for ligne in file:
                 num = num+1
                 if len(ligne) < 2:           # ligne vide, trait du tableau
                     vide = vide + 1
-                    if vide > 2:                # trois lignes vides = fin de page
+                    continue
+
+                if Table:
+                    # detect footer    
+                    eot = footer_pat.search(ligne);
+                    if eot is None:
+                        # This is one of the strange lines with a numeric code at the end
+                        eot = (0 == len(ligne[:Debit_pos].split()))
+                    if (eot):
+                        if verbosity > 1:    
+                            pdb.set_trace()
                         Table = False
                         if len(operation) > 0:
                             if Ope.estRemplie(operation): # on ajoute la précédente 
                                 self.ajoute(Ope)          # opération si elle est valide     
                                 if verbosity:    
                                     print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
-                                                                                               Ope.debit, Ope.credit))      
+                                                                                           Ope.debit, Ope.credit))      
                                 Ope = uneOperation()
                                 date = ""
                                 la_date = ""
                                 operation = []
-                    continue
-
+                        continue
+ 
                 if Table == False:
                     # search for new page header -- compute actual page width
-                    if re.search('Date\s*Nature\s*des\s*', ligne, re.IGNORECASE): 
+                    if nature_pat.search(ligne): 
                         Table = True        # where back analysing data
-                        vide = 0
-                        Date_pos = ligne.find('Date')
-                        Nature_pos = ligne.find('Nature')
-                        Valeur_pos = ligne.find('Valeur')
-                        Debit_pos = Valeur_pos + len('Valeur')
+                        Date_pos = re.search('D\s*ate', ligne).start()
+                        Nature_pos = re.search('N\s*ature', ligne).start()
+                        Valeur_pos = re.search('V\s*aleur', ligne).start()
+                        Debit_pos = Valeur_pos + len('Valeur') + 1
+                        Credit_pos = re.search('C\s*rédit', ligne).start()
                         page_width = len(ligne)
                     continue
                 
@@ -197,27 +222,33 @@ class UnReleve:
                 if re.match('.*?total des montants\s', ligne, re.IGNORECASE):
                     if verbosity:    
                         print('{}({}): {}'.format(num, len(ligne), ligne))
+                    if verbosity > 1:    
+                        pdb.set_trace()
                     break;
                 if re.match('.*?total des operations\s', ligne, re.IGNORECASE):
                     if verbosity:    
                         print('{}({}): {}'.format(num, len(ligne), ligne))
+                    if verbosity > 1:    
+                        pdb.set_trace()
                     break;
                 
                 if verbosity:    
                     print('{}({}): {}'.format(num, len(ligne), ligne))
                 
-                vide = 0
-                date_ou_pas = ligne[Date_pos:Nature_pos].split()  # premier caractères de la ligne (date?)
+                date_ou_pas = ligne[:Nature_pos].split()  # premier caractères de la ligne (date?)
                 if 1 == len(date_ou_pas):
                     date_ou_pas = pattern.split(date_ou_pas[0])
 
                 # si une ligne se termine par un montant, il faut l'extraire pour qu'il reste la
                 # date valeur
-                dernier = pattern.split(ligne[-22:].strip())
+                dernier = pattern.split(ligne[Debit_pos:].strip())
                 # this was 
                 # dernier = ligne[-22:].split()    # derniers caractères (valeur?)
                 if 1 == len(dernier):
                     dernier = pattern.split(dernier[0])
+                ## put your debug code here    
+                if " OWRQ600240112" in ligne:
+                    pdb.set_trace()
 
                 if estArgent(dernier):
                     # si l'operation précédente est complète, on la sauve
@@ -231,19 +262,19 @@ class UnReleve:
                     la_valeur   = list2valeur(dernier)
                     try:
                         # there are odds and even pages. That's odd
-                        if len(ligne) < page_width:
-                            Ope.debit = locale.atof(la_valeur)
-                            somme_deb += Ope.debit
-                        else:
+                        if len(ligne) > Credit_pos:
                             Ope.credit = locale.atof(la_valeur)
                             somme_cred += Ope.credit
+                        else:
+                            Ope.debit = locale.atof(la_valeur)
+                            somme_deb += Ope.debit
                     except ValueError as e:
                         print('Failed to convert {} to a float: {}'.format(la_valeur, e))
                     previous_ligne = ligne    
                     ligne = ligne[:Debit_pos] # truncate the money amount
                 
                 if estDate(date_ou_pas):          # est-ce une date
-                    date_valeur = ligne[-6:].split() # il y a aussi une date valeur
+                    date_valeur = ligne[Valeur_pos:Debit_pos].split() # il y a aussi une date valeur
                     if 1 == len(date_valeur):
                         
                         date_valeur = pattern.split(date_valeur[0])
@@ -288,25 +319,30 @@ class UnReleve:
             if verbosity:    
                 print('Exited main loop')
                 print('{}({}): {}'.format(num, len(ligne), ligne))
-                pdb.set_trace()
+                if verbosity > 1:    
+                    pdb.set_trace()
 
             operation = ligne.split(); 
             start = 3
-            count = 4
+            count = 3
             for num, elem in enumerate(operation[count:]):
                 # pre-increment count as [start:count] goes one element
                 # before count
                 count = count + 1
-                if ',' in elem:
+                if dp in elem:
+                    if (1 == len(elem)):        # in the old listing, there were extraneous spaces
+                        count = count + 1
                     break
 
             le_debit = ''.join(operation[start:count])
             start = count
-            count = start + 1
+            count = start
             for elem in operation[count:]:
                 count = count + 1         
-                if ',' in elem:
-                   break
+                if dp in elem:
+                    if (1 == len(elem)):        # in the old listings, there were extraneous spaces
+                        count = count + 1
+                    break
 
             le_credit = ''.join(operation[start:count])
             try:
@@ -320,7 +356,7 @@ class UnReleve:
             
             # here, we have "solde .. au
             for ligne in file:
-                if re.search('Solde\s*', ligne, re.IGNORECASE): 
+                if re.search('SOLDE\s+', ligne): 
                     break
             
             operation = ligne.split()
@@ -433,7 +469,6 @@ def extraction_PDF(pdf_file, deja_en_txt, temp):
     s'il n'existe pas deja"""
     txt_file = pdf_file[:-3]+"txt"
     if not txt_file in deja_en_txt:
-        pdb.set_trace()
         print('[pdf->txt] Conversion : '+pdf_file)
         subprocess.call([PDFTOTEXT, '-layout', pdf_file, txt_file])
         temp.append(txt_file)
@@ -450,7 +485,7 @@ def estArgent(liste):
     """ Attend un format ['[0-9]*', ',', '[0-9][0-9]'] """
     if len(liste) < 3:
         return False
-    if liste[-2] == ',':
+    if dp in liste[-2]:
         return True
     return False
 
@@ -531,7 +566,7 @@ def main(*args, **kwargs):
     print('********************  PDF -> CSV  ********************\n')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--verbosity", type=int, help="increase output verbosity")
+    parser.add_argument("--verbosity", type=int, default=0, help="increase output verbosity")
     parser.add_argument("--prefixe", help="prefixe des fichiers à traiter")
     myargs = parser.parse_args()
 
