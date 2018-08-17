@@ -106,10 +106,13 @@ class UnReleve:
         """Ajoute une opération à la fin de la liste du relevé bancaire"""
         self.liste.append(Ope)
 
-    def ajoute_from_TXT(self, fichier_txt, annee, mois, verbosity=False):
+    def ajoute_from_TXT(self, fichier_txt, annee, mois, verbosity=False, basedir=None):
         """Parse un fichier TXT pour en extraire les
         opérations bancaires et les mettre dans le relevé"""
         print('[txt->   ] Lecture    : '+fichier_txt)
+
+        if basedir:
+            fichier_txt = os.path.join(basedir, fichier_txt)
 
         with open(fichier_txt) as file:
             Table = False
@@ -429,7 +432,7 @@ class UnReleve:
                 print('{}({}): {}'.format(num, len(ligne), ligne))
                 print('Solde final: {}  au {}'.format(solde_final, basedate))
 
-    def genere_CSV(self, filename=""):
+    def genere_CSV(self, filename="", basedir=None):
         """crée un fichier CSV qui contiendra les opérations du relevé
         si ce CSV n'existe pas deja"""
         if filename == "":
@@ -437,6 +440,8 @@ class UnReleve:
         filename_csv = filename + ".csv"
         if filename_csv not in deja_en_csv:
             print('[   ->csv] Export     : '+filename_csv)
+            if basedir:
+                filename_csv=os.path.join(basedir, filename_csv)
             with open(filename_csv, "w") as file:
                 file.write("Date"+CSV_SEP+"Date_Valeur"+CSV_SEP+"Date_Oper"+CSV_SEP+"Débit"+CSV_SEP+"Crédit"+CSV_SEP+"Opération\n")
                 for Ope in self.liste:
@@ -446,6 +451,8 @@ class UnReleve:
         if filename_xlsx not in deja_en_xlsx:
             print('[   ->xlsx] Export     : '+filename_xlsx)
             # pdb.set_trace()
+            if basedir:
+                filename_xlsx=os.path.join(basedir, filename_xlsx)
             workbook = xlsxwriter.Workbook(filename_xlsx)
             worksheet = workbook.add_worksheet()
             worksheet.set_column(0, 2, 12)
@@ -471,13 +478,20 @@ class UnReleve:
             workbook.close()
 
 
-def extraction_PDF(pdf_file, deja_en_txt, temp):
+def extraction_PDF(pdf_file, deja_en_txt, temp, basedir=None):
     """Lit un relevé PDF et le convertit en fichier TXT du même nom
     s'il n'existe pas deja"""
     txt_file = pdf_file[:-3]+"txt"
+
+    if basedir:
+        pdf_file = os.path.join(basedir, pdf_file)
+        abs_file = os.path.join(basedir, txt_file)
+    else:
+        abs_file = txt_file
+
     if txt_file not in deja_en_txt:
         print('[pdf->txt] Conversion : '+pdf_file)
-        subprocess.call([PDFTOTEXT, '-layout', pdf_file, txt_file])
+        subprocess.call([PDFTOTEXT, '-layout', pdf_file, abs_file])
         temp.append(txt_file)
 
 
@@ -520,6 +534,7 @@ def list2valeur(liste):
 def filtrer(liste, filetype):
     """Renvoie les fichiers qui correspondent à l'extension donnée en paramètre"""
     files = [fich for fich in liste if fich.split('.')[-1].lower() == filetype]
+    files.sort()
     return files
 
 def mois_dispos(liste):
@@ -576,9 +591,15 @@ def main(*args, **kwargs):
     print('*   Convertisseur de relevés bancaires BNP Paribas   *')
     print('********************  PDF -> CSV  ********************\n')
 
+    if shutil.which(PDFTOTEXT) is None:
+        print("Fichier {} absent !".format(PDFTOTEXT))
+        input("Bye bye :(")
+        exit()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbosity", type=int, default=0, help="increase output verbosity")
     parser.add_argument("--prefixe", help="prefixe des fichiers à traiter")
+    parser.add_argument("--dir", help="répertoire des fichiers à traiter")
     myargs = parser.parse_args()
 
     # if myargs.prefixe:
@@ -587,12 +608,13 @@ def main(*args, **kwargs):
     #     PREFIXE_COMPTE = CSV_SEP
 
     chemin = os.getcwd()
-    fichiers = os.listdir(chemin)
+    if myargs.dir:
+        if os.path.isabs(myargs.dir):
+            chemin = myargs.dir
+        else:
+            chemin = os.path.join(chemin, myargs.dir)
 
-    if shutil.which(PDFTOTEXT) is None:
-        print("Fichier {} absent !".format(PDFTOTEXT))
-        input("Bye bye :(")
-        exit()
+    fichiers = os.listdir(chemin)
 
     mes_pdfs = filtrer(fichiers, 'pdf')
     deja_en_txt = filtrer(fichiers, 'txt')
@@ -631,10 +653,10 @@ def main(*args, **kwargs):
             xlsx= PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if csv not in deja_en_csv:
                 touch = touch + 1
-                extraction_PDF(releve, deja_en_txt, temp_list)
+                extraction_PDF(releve, deja_en_txt, temp_list, myargs.dir)
             elif xlsx not in deja_en_xlsx:
                 touch = touch + 1
-                extraction_PDF(releve, deja_en_txt, temp_list)
+                extraction_PDF(releve, deja_en_txt, temp_list, myargs.dir)
     if touch != 0:
         print("")
 
@@ -659,17 +681,19 @@ def main(*args, **kwargs):
             xlsx= PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if csv not in deja_en_csv:
                 releve = UnReleve()
-                releve.ajoute_from_TXT(txt, annee, mois, myargs.verbosity)
-                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois)
+                releve.ajoute_from_TXT(txt, annee, mois, myargs.verbosity, myargs.dir)
+                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois, myargs.dir)
             elif xlsx not in deja_en_xlsx: 
                 releve = UnReleve()
-                releve.ajoute_from_TXT(txt, annee, mois, myargs.verbosity)
-                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois)
+                releve.ajoute_from_TXT(txt, annee, mois, myargs.verbosity, myargs.dir)
+                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois, myargs.dir)
 
     # on efface les fichiers TXT
     if len(temp_list):
         print("[txt-> x ] Nettoyage\n")
         for txt in temp_list:
+            if myargs.dir:
+                txt = os.path.join(myargs.dir, txt)
             os.remove(txt)
 
     if touch == 0:
