@@ -27,8 +27,7 @@ import locale
 from datetime import datetime as dt
 
 # Le motif des fichiers à traiter
-PREFIXE_COMPTE = "RCHQ_101_300040012300001234567_"
-PREFIXE_COMPTE = "300040181600000906809"
+PREFIXE_COMPTE = "RCHQ_101_"
 
 CSV_SEP        = ";"
 deja_en_csv    = ""
@@ -585,6 +584,11 @@ def affiche(liste):
         print(ligne)
     print("")
 
+def getVarFromFile(filename):
+    global PREFIXE_COMPTE
+   
+
+
 # On demarre ici
 def main(*args, **kwargs):
     print('\n******************************************************')
@@ -602,10 +606,13 @@ def main(*args, **kwargs):
     parser.add_argument("--dir", help="répertoire des fichiers à traiter")
     myargs = parser.parse_args()
 
-    # if myargs.prefixe:
-    #     PREFIXE_COMPTE = myargs.prefixe
-    # else:
-    #     PREFIXE_COMPTE = CSV_SEP
+    global PREFIXE_COMPTE
+    if myargs.prefixe:
+        PREFIXE_COMPTE = myargs.prefixe
+    else:
+        if os.path.isfile('./prefixe_compte.txt'):
+            with open('./prefixe_compte.txt') as file:
+                PREFIXE_COMPTE = file.read().strip()
 
     chemin = os.getcwd()
     if myargs.dir:
