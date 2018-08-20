@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 #
-# auteur             twolaw_at_free_dot_fr
-# nom                convertBNP_4col.py
+# auteur             2012 -- 2016 twolaw_at_free_dot_fr
+#                    2017 -- 2018 Pascal Dupuis <cdemills@gmail.com>
+# nom                convertBNP_5col.py
 # description        Lit les relevés bancaires de la BNP en PDF dans le répertoire courant pour en générer des CSV
 #                    Nécessite le fichier pdftotext.exe en version 3.03 issu de l'archive xpdf (gratuit, GPL2)
 # ------------------
@@ -18,6 +19,22 @@
 #   - valeur de crédit : string
 #
 # fichiers PDF de la forme RCHQ_101_300040012300001234567_20131026_2153.PDF
+
+# Copyright 2012-2016 twolaw_at_free_dot_fr
+# Copyright 2017-2018 Pascal Dupuis <cdemills@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import pdb
 
@@ -43,14 +60,12 @@ locale.setlocale(locale.LC_NUMERIC, '')
 # the decimal point in use
 dp = locale.localeconv()['decimal_point']
 
-
 if os.name == 'nt':
     PDFTOTEXT = 'pdftotext.exe'
     PREFIXE_CSV    = "Relevé BNP "
 else: 
     PDFTOTEXT = 'pdftotext'
     PREFIXE_CSV    = "Relevé_BNP_"
-
 
 class uneOperation:
     """Une opération bancaire = une date, un descriptif,
@@ -113,7 +128,7 @@ class UnReleve:
         if basedir:
             fichier_txt = os.path.join(basedir, fichier_txt)
 
-        with open(fichier_txt) as file:
+        with open(fichier_txt, 'r') as file:
             Table = False
             vide = 0
             page_width = 0
@@ -531,7 +546,7 @@ def list2valeur(liste):
 
 
 def filtrer(liste, filetype):
-    """Renvoie les fichiers qui correspondent à l'extension donnée en paramètre"""
+    """Renvoie une liste triée des fichiers qui correspondent à l'extension donnée en paramètre"""
     files = [fich for fich in liste if fich.split('.')[-1].lower() == filetype]
     files.sort()
     return files
@@ -611,8 +626,8 @@ def main(*args, **kwargs):
         PREFIXE_COMPTE = myargs.prefixe
     else:
         if os.path.isfile('./prefixe_compte.txt'):
-            with open('./prefixe_compte.txt') as file:
-                PREFIXE_COMPTE = file.read().strip()
+            with open('./prefixe_compte.txt', 'r') as file:
+                PREFIXE_COMPTE = file.readline().strip()
 
     chemin = os.getcwd()
     if myargs.dir:

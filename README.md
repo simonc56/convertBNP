@@ -16,32 +16,40 @@ l'archive xpdf (xpdf est opensource et gratuit, sous licence GPL2).
 Il ne fonctionne pas avec la version 3.04.
 
 ## Versions
+
 Il y a trois variantes :
 
 * *convertBNP* : script original créé le 10/11/2013 pour python3 sur
    Windows, suppose une mise en forme bien précise, utilisée autour de
-   2013
+   2013.
 * *convertBNP_4col.py* : créé à la demande d'un utilisateur, sépare les
   débits et crédits en 2 colonnes distinctes. Mêmes restrictions de mise
-  en forme
+  en forme.
 * *convertBNP_5col.py* : ajoute une date des opérations, si elle est
   différente de la date du mouvement. Compatible avec les mises en
   formes utilisées de 2012 à 2018 (et au-delà ...).
-
+* les fichiers de sortie sont de la forme *'Relevé BNP YYYY-MM'* sous
+  Windows et *'Relevé_BNP_YYYY-MM'* ailleurs.
 
 ## Installation dans un environnement virtuel
 
-1. Pré-requis : python3 et un répertoire de travail généré à partir des sources GitHub
+Cette méthode est particulièrement utile quand il y a plusieurs
+versions de Python installées, ou que l'on ne peut/veut pas modifier
+les modules installés au niveau du système.
 
-2. Créer un environnement virtuel
+1. Pré-requis : python3 et un répertoire de travail généré à partir
+des sources GitHub.
+
+2. Créer un environnement virtuel :
 
          2.1 en ligne de commande, à partir de ce répertoire :
    
                 $ python3 -mvenv .
            
-         2.2 en mode graphique : créer un environnement virtuel, choisir comme répertoire de destination celui créé à partir de GitHub
+         2.2 en mode graphique : créer un environnement virtuel, choisir comme répertoire de 
+         destination celui créé à partir de GitHub
 
-3. activer cet environnement et installer le module python "XlsWriter" via pip :
+3. activer cet environnement et installer le module python "XlsxWriter" via pip :
 
            $ source bin/activate
            $ pip3 install XslxWriter
@@ -65,9 +73,8 @@ Il y a trois variantes :
     stockés dans le même répertoire.
 
 ## Installation (méthode originale)
-
 1. Installer Python 3.x.x
-2. Extraire pdftotext.exe et convertBNP.py dans le répertoire des relevés de compte PDF
+2. Extraire pdftotext.exe et convertBNP.py dans le répertoire des relevés de compte PDF.
 
 3. créer un fichier "prefixe_compte.txt" avec le Bloc-Notes, en y
    mettant votre numéro de compte (voir le nom de vos fichiers PDF).
@@ -81,20 +88,19 @@ Il y a trois variantes :
    "python convertBNP.py"
 
 ## Changements majeurs
-
 - au fil du temps (2012 -- 2018), il y a eu des changements de mise en
   forme dans les fichiers pdf.  Ce script identifie à présent la
-  pagination pour aller chercher les bons champs aux bons endroits
+  pagination pour aller chercher les bons champs aux bons endroits.
   
-- les fichiers sont exportés en csv et en Exell / Libreoffice (.xlsx)
+- les fichiers sont exportés au format csv et xlsx (Exell / Libreoffice).
 
 - Prend en compte les "locales" pour déterminer le type de séparateur
-  décimal
+  décimal.
 
 - Génère une colonne complémentaire avec la date du mouvement. Par
   exemple, pour un retrait par carte, on peut avoir une date pour le
   retrait (un samedi), une date pour l'opération (le lundi suivant) et
-  une date valeur (en fin du mois)
+  une date valeur (en fin du mois).
 
 - La somme des mouvements de type débit et crédit est comparée aux
   données en fin de tableau. En cas de différence, cela est considéré
