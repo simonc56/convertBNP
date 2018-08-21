@@ -43,8 +43,9 @@ import xlsxwriter
 import locale
 from datetime import datetime as dt
 
-# Le motif des fichiers à traiter
-PREFIXE_COMPTE = "RCHQ_101_"
+# Le motif des fichiers à traiter, à remplacer ou a transmettre via le fichier
+# "prefixe_compte.txt" ou via l'argument --prefixe
+PREFIXE_COMPTE = "123456789"
 
 CSV_SEP        = ";"
 deja_en_csv    = ""
@@ -123,7 +124,7 @@ class UnReleve:
     def ajoute_from_TXT(self, fichier_txt, annee, mois, verbosity=False, basedir=None):
         """Parse un fichier TXT pour en extraire les
         opérations bancaires et les mettre dans le relevé"""
-        print('[txt->   ] Lecture    : '+fichier_txt)
+        print('[txt->    ] Lecture    : '+fichier_txt)
 
         if basedir:
             fichier_txt = os.path.join(basedir, fichier_txt)
@@ -453,7 +454,7 @@ class UnReleve:
             filename = self.nom
         filename_csv = filename + ".csv"
         if filename_csv not in deja_en_csv:
-            print('[   ->csv] Export     : '+filename_csv)
+            print('[   ->csv ] Export     : '+filename_csv)
             if basedir:
                 filename_csv=os.path.join(basedir, filename_csv)
             with open(filename_csv, "w") as file:
@@ -504,7 +505,7 @@ def extraction_PDF(pdf_file, deja_en_txt, temp, basedir=None):
         abs_file = txt_file
 
     if txt_file not in deja_en_txt:
-        print('[pdf->txt] Conversion : '+pdf_file)
+        print('[pdf->txt ] Conversion : '+pdf_file)
         subprocess.call([PDFTOTEXT, '-layout', pdf_file, abs_file])
         temp.append(txt_file)
 
@@ -608,7 +609,7 @@ def getVarFromFile(filename):
 def main(*args, **kwargs):
     print('\n******************************************************')
     print('*   Convertisseur de relevés bancaires BNP Paribas   *')
-    print('********************  PDF -> CSV  ********************\n')
+    print('********************  PDF -> CSV/XLSX  ***************\n')
 
     if shutil.which(PDFTOTEXT) is None:
         print("Fichier {} absent !".format(PDFTOTEXT))
@@ -647,11 +648,12 @@ def main(*args, **kwargs):
     mes_mois_deja_en_txt = mois_dispos(deja_en_txt)
 
     if len(mes_mois_disponibles) == 0:
-        print("Il n'y a pas de relevés de compte en PDF dans ce répertoire")
-        print("correspondant au préfixe "+PREFIXE_COMPTE)
+        print("Il n'y a pas de relevés de compte en PDF dans le répertoire")
+        print(chemin + "\n")
+        print("contenant " + PREFIXE_COMPTE + " avant le champs 'date'")
         print("\nIl faut placer les fichiers convertBNP.py et pdftotext.exe")
         print("à côté des fichiers de relevé de compte en PDF et adapter")
-        print("la ligne 18 (PREFIXE_COMPTE = XXXXX) du fichier convertBNP.py")
+        print("la ligne 48 (PREFIXE_COMPTE = XXXXX) du fichier convertBNP.py")
         print("pour la faire correspondre à votre numéro de compte.\n")
         input("Bye bye :(")
         exit()
@@ -712,7 +714,7 @@ def main(*args, **kwargs):
 
     # on efface les fichiers TXT
     if len(temp_list):
-        print("[txt-> x ] Nettoyage\n")
+        print("[txt-> x  ] Nettoyage\n")
         for txt in temp_list:
             if myargs.dir:
                 txt = os.path.join(myargs.dir, txt)
