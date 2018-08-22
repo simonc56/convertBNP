@@ -19,10 +19,20 @@ troisième champs qui est utilisé pour identifier les fichiers
 contenant le relevé des opérations. Les fichiers commencant par
 "FRAIS_101" ne sont pas analysés.
 
- 
-Le script utilise le fichier pdftotext.exe en version 3.03 issu de
-l'archive xpdf (xpdf est opensource et gratuit, sous licence GPL2).
-Il ne fonctionne pas avec la version 3.04.
+La conversion des fichiers pdf en fichiers txt peut se faire de
+plusieurs façons :
+
+* *via* le module Python
+   [pdftotext](https://github.com/jalan/pdftotext). Ce module est
+   detecté et utilisé si présent.
+* *via* le programme pdftotext. 
+      * linux (Fedora, CentOS, RedHat, Debian, Alpine) : poppler-utils. Arch : poppler
+      * Mac OS : avec brew, voir [ici](http://macappstore.org/pdftotext/)
+      * Windows + Cygwin : paquet poppler disponible depuis 2012
+      * Windows : télécharger les ["Xpdf Tools"](https://www.xpdfreader.com/download.html). Ce script utilise le fichier pdftotext.exe en version 3.03. Il ne fonctionne pas avec la version 3.04. La version 4.0 n'a pas été testée.
+
+Au moins une de ces approches doit être disponible, sans quoi le
+script s'arrête directement.
 
 ## Versions
 
@@ -47,7 +57,7 @@ versions de Python installées, ou que l'on ne peut/veut pas modifier
 les modules installés au niveau du système.
 
 1. Pré-requis : python3 et un répertoire de travail généré à partir
-des sources GitHub.
+du dépôt GitHub.
 
 2. Créer un environnement virtuel :
 
@@ -58,10 +68,10 @@ des sources GitHub.
          2.2 en mode graphique : créer un environnement virtuel, choisir comme répertoire de 
          destination celui créé à partir de GitHub
 
-3. activer cet environnement et installer le module python "XlsxWriter" via pip :
+3. activer cet environnement et installer les module python "XlsxWriter" et "pdftotext" *via* pip :
 
            $ source bin/activate
-           $ pip3 install XslxWriter
+           $ pip3 install XslxWriter pdftotext
 
 4. le script comprend à présent 3 arguments :
 
@@ -70,7 +80,7 @@ des sources GitHub.
               du traitement
 
       - --prefixe : une sous-chaine qui se trouve dans les noms des fichiers
-   pdf à analyser. Le préfixe peut aussi être lu via un fichier
+   pdf à analyser. Le préfixe peut aussi être lu *via* un fichier
    "prefixe_compte.txt" dans le même répertoire que le script python,
    dont le contenu, en une seule ligne, correspond à la partie fixe
    des relevés :
