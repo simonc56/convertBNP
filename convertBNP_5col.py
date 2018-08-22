@@ -145,16 +145,25 @@ class UnReleve:
                 if monnaie:
                     monnaie = monnaie.group(1)
                     break
+
+            # detect bad pdf->txt conversions and abort
+            if not(isinstance(monnaie, str)):
+                print("Le fichier {} semble mal formatté !".format(fichier_txt))
+                input("Bye bye :(")
+                exit()
+
             # à présent, en-tête et SOLDE  / Date / valeur
             for ligne in file:
                 num = num + 1
+                # this is a cut-and-paste of lines 239 -- 245
                 if nature_pat.search(ligne):
                     Table = True        # where back analysing data
                     Date_pos = re.search('D\s*ate', ligne).start()
                     Nature_pos = re.search('N\s*ature', ligne).start()
-                    Valeur_pos = re.search('V\s*aleur', ligne).start()
-                    Debit_pos = Valeur_pos + len('Valeur') + 1
-                    Credit_pos = re.search('C\s*rédit', ligne).start()
+                    dernier = re.search('V\s*aleur', ligne)
+                    Valeur_pos = dernier.start()
+                    Debit_pos = dernier.end() + 1
+                    Credit_pos = re.search('D\s*ébit  ', ligne).end() + 1
                     page_width = len(ligne)
                     continue
                 if re.search('SOLDE\s+', ligne):
@@ -236,9 +245,10 @@ class UnReleve:
                         Table = True        # where back analysing data
                         Date_pos = re.search('D\s*ate', ligne).start()
                         Nature_pos = re.search('N\s*ature', ligne).start()
-                        Valeur_pos = re.search('V\s*aleur', ligne).start()
-                        Debit_pos = Valeur_pos + len('Valeur') + 1
-                        Credit_pos = re.search('C\s*rédit', ligne).start()
+                        dernier = re.search('V\s*aleur', ligne)
+                        Valeur_pos = dernier.start()
+                        Debit_pos = dernier.end() + 1
+                        Credit_pos = re.search('D\s*ébit  ', ligne).end() + 1
                         page_width = len(ligne)
                     continue
 
@@ -271,9 +281,9 @@ class UnReleve:
                 if 1 == len(dernier):
                     dernier = pattern.split(dernier[0])
                 # put your debug code here
-                if "MUTUELLE GENERALE" in ligne:
-                    if verbosity:
-                        pdb.set_trace()
+                # if "MUTUELLE GENERALE" in ligne:
+                #     if verbosity:
+                #         pdb.set_trace()
 
                 if estArgent(dernier):
                     # si l'operation précédente est complète, on la sauve
@@ -286,13 +296,14 @@ class UnReleve:
                         operation = []                # we are on a new op
                     la_valeur = list2valeur(dernier)
                     try:
-                        # there are odds and even pages. That's odd
-                        if len(ligne) > Credit_pos:
+                        # there are odd and even pages. That's odd !
+                        if dp in ligne[Debit_pos:Credit_pos]:
+                            Ope.debit = locale.atof(la_valeur)
+                            somme_deb += Ope.debit            
+                        else:                
                             Ope.credit = locale.atof(la_valeur)
                             somme_cred += Ope.credit
-                        else:
-                            Ope.debit = locale.atof(la_valeur)
-                            somme_deb += Ope.debit
+                            
                     except ValueError as e:
                         print('Failed to convert {} to a float: {}'.format(la_valeur, e))
                     previous_ligne = ligne    
@@ -335,7 +346,7 @@ class UnReleve:
                     Ope.date_valeur = la_date_valeur
 
             # end of main table             
-            if Ope.estRemplie(operation):         # on ajoute la précédente 
+            if Ope.estRemplie(operation):         # on ajoute la précédente
                 if verbosity:
                     print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
                                                                                Ope.debit, Ope.credit))      
@@ -347,6 +358,7 @@ class UnReleve:
                 if verbosity > 1:
                     pdb.set_trace()
 
+            # this part may fail if there is no "Débit" field  
             operation = ligne.split()
             start = 3
             count = 3
@@ -358,26 +370,40 @@ class UnReleve:
                     if (1 == len(elem)):        # in the old listing, there were extraneous spaces
                         count = count + 1
                     break
+            dernier = pattern.split(ligne[Debit_pos:Credit_pos].strip())
+            # check it's really a debit field
+            if (estArgent(dernier)):        
+                le_debit = ''.join(operation[start:count])
+                start = count
+                count = start
+                for elem in operation[count:]:
+                    count = count + 1
+                    if dp in elem:
+                        if (1 == len(elem)):        # in the old listings, there were extraneous spaces
+                            count = count + 1
+                        break
 
-            le_debit = ''.join(operation[start:count])
-            start = count
-            count = start
-            for elem in operation[count:]:
-                count = count + 1
-                if dp in elem:
-                    if (1 == len(elem)):        # in the old listings, there were extraneous spaces
-                        count = count + 1
-                    break
-
-            le_credit = ''.join(operation[start:count])
-            try:
-                le_debit = locale.atof(le_debit)
-            except ValueError as e:
-                print('Failed to convert {} to a float: {}'.format(le_debit, e))
-            try:
-                le_credit = locale.atof(le_credit)
-            except ValueError as e:
-                print('Failed to convert {} to a float: {}'.format(le_debit, e))
+                le_credit = ''.join(operation[start:count])
+            else:
+                le_debit  = ''
+                le_credit = ''.join(operation[start:count])
+                    
+            # convert both data, if present
+            if (len(le_debit) > 0):
+                try:
+                    le_debit = locale.atof(le_debit)
+                except ValueError as e:
+                    print('Failed to convert {} to a float: {}'.format(le_debit, e))
+            else:
+                le_debit = 0.0
+                    
+            if (len(le_credit) > 0):
+                try:
+                    le_credit = locale.atof(le_credit)
+                except ValueError as e:
+                    print('Failed to convert {} to a float: {}'.format(le_credit, e))
+            else:
+                le_credit = 0.0
 
             # here, we have "solde .. au
             for ligne in file:
@@ -623,19 +649,25 @@ def main(*args, **kwargs):
     myargs = parser.parse_args()
 
     global PREFIXE_COMPTE
+    
+    chemin = os.getcwd()
+    if myargs.dir:
+        myargs.dir = os.path.expanduser(myargs.dir)
+        if os.path.isabs(myargs.dir):
+            chemin = myargs.dir
+        else:
+            chemin = os.path.join(chemin, myargs.dir)
+
     if myargs.prefixe:
         PREFIXE_COMPTE = myargs.prefixe
     else:
         if os.path.isfile('./prefixe_compte.txt'):
             with open('./prefixe_compte.txt', 'r') as file:
                 PREFIXE_COMPTE = file.readline().strip()
-
-    chemin = os.getcwd()
-    if myargs.dir:
-        if os.path.isabs(myargs.dir):
-            chemin = myargs.dir
-        else:
-            chemin = os.path.join(chemin, myargs.dir)
+        mes_pdfs = os.path.join(chemin, 'prefixe_compte.txt')
+        if os.path.isfile(mes_pdfs):
+            with open(mes_pdfs, 'r') as file:
+                PREFIXE_COMPTE = file.readline().strip()
 
     fichiers = os.listdir(chemin)
 
