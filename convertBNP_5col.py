@@ -533,6 +533,8 @@ def extraction_PDF(pdf_file, deja_en_txt, temp, basedir=None):
     if txt_file not in deja_en_txt:
         print('[pdf->txt ] Conversion : '+pdf_file)
         subprocess.call([PDFTOTEXT, '-layout', pdf_file, abs_file])
+        print('[pdf->txt ]              terminée, taille  ' +
+              str(os.path.getsize(abs_file)) + ' octets')
         temp.append(txt_file)
 
 
