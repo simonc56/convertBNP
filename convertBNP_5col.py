@@ -41,7 +41,12 @@ import pdb
 import argparse, os, re, subprocess, shutil, sys
 import xlsxwriter
 import locale
+import importlib
 from datetime import datetime as dt
+
+PDFTOTEXT_SPEC = importlib.util.find_spec("pdftotext")
+if PDFTOTEXT_SPEC is not None:
+    import pdftotext
 
 # Le motif des fichiers à traiter, à remplacer ou a transmettre via le fichier
 # "prefixe_compte.txt" ou via l'argument --prefixe
@@ -66,7 +71,8 @@ if os.name == 'nt':
     PREFIXE_CSV    = "Relevé BNP "
 else: 
     PDFTOTEXT = 'pdftotext'
-    PREFIXE_CSV    = "Relevé_BNP_"
+    PREFIXE_CSV    = "Relevé_BNP_"     
+
 
 class uneOperation:
     """Une opération bancaire = une date, un descriptif,
@@ -532,11 +538,17 @@ def extraction_PDF(pdf_file, deja_en_txt, temp, basedir=None):
 
     if txt_file not in deja_en_txt:
         print('[pdf->txt ] Conversion : '+pdf_file)
-        subprocess.call([PDFTOTEXT, '-layout', pdf_file, abs_file])
+        if PDFTOTEXT_SPEC is None:
+            subprocess.call([PDFTOTEXT, '-layout', pdf_file, abs_file])
+        else:
+            with open(pdf_file, "rb") as f:
+                pdf = pdftotext.PDF(f)
+            with open(abs_file, 'w') as f:
+                f.write(''.join(pdf))
+      
         print('[pdf->txt ]              terminée, taille  ' +
               str(os.path.getsize(abs_file)) + ' octets')
         temp.append(txt_file)
-
 
 def estDate(liste):
     """ Attend un format ['JJ', '.' 'MM']"""
@@ -632,17 +644,18 @@ def getVarFromFile(filename):
     global PREFIXE_COMPTE
    
 
-
 # On demarre ici
 def main(*args, **kwargs):
     print('\n******************************************************')
     print('*   Convertisseur de relevés bancaires BNP Paribas   *')
     print('********************  PDF -> CSV/XLSX  ***************\n')
 
-    if shutil.which(PDFTOTEXT) is None:
-        print("Fichier {} absent !".format(PDFTOTEXT))
-        input("Bye bye :(")
-        exit()
+   
+    if PDFTOTEXT_SPEC is None:
+        if shutil.which(PDFTOTEXT) is None:
+            print("Fichier {} absent !".format(PDFTOTEXT))
+            input("Bye bye :(")
+            exit()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbosity", type=int, default=0, help="increase output verbosity")
