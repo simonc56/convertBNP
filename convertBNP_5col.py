@@ -548,13 +548,13 @@ class UnReleve:
             if basedir:
                 filename_csv=os.path.join(basedir, filename_csv)
             with open(filename_csv, "w") as file:
-                file.write("Date"+CSV_SEP+"Date_Valeur"+CSV_SEP+"Date_Oper"+CSV_SEP+"Débit"+CSV_SEP+"Crédit"+CSV_SEP+"Opération\n")
+                file.write("Date"+CSV_SEP+"Date_Valeur"+CSV_SEP+"Date_Oper"+CSV_SEP+"Débit ({})".format(self.monnaie)+CSV_SEP+"Crédit ({})".format(self.monnaie)+CSV_SEP+"Opération\n")
                 for Ope in self.head:
-                    file.write(Ope.date+CSV_SEP+Ope.date_valeur+CSV_SEP+Ope.date_oper+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
+                    file.write(Ope.date+CSV_SEP+CSV_SEP+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
                 for Ope in self.liste:
                     file.write(Ope.date+CSV_SEP+Ope.date_valeur+CSV_SEP+Ope.date_oper+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
                 for Ope in self.tail:
-                    file.write(Ope.date+CSV_SEP+Ope.date_valeur+CSV_SEP+Ope.date_oper+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
+                    file.write(Ope.date+CSV_SEP+CSV_SEP+CSV_SEP+'{:.2f}'.format(Ope.debit)+CSV_SEP+'{:.2f}'.format(Ope.credit)+CSV_SEP+Ope.desc+"\n")
                 file.close()
         filename_xlsx = filename + ".xlsx"
         if filename_xlsx not in deja_en_xlsx:
