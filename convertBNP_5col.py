@@ -521,11 +521,11 @@ class UnReleve:
                 else:
                     raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvements, solde_final))
             
+            # create the control line with computed sum of amounts        
+            OpeCont = uneOperation(basedate, "SOMME DE CONTROLE", "", somme_deb, somme_cred)
+            self.ajoute(OpeCont, 'tail')
             # duplicate the current operation
             OpeTot = uneOperation(basedate, "TOTAL DES MONTANTS", "", le_debit, le_credit)
-            OpeTot.desc = "TOTAL DES MONTANTS"
-            OpeTot.debit = le_debit
-            OpeTot.credit = le_credit
             # dump it
             self.ajoute(OpeTot, 'tail')
 
@@ -597,12 +597,12 @@ class UnReleve:
             # generate a control formula
             Ope = self.tail[0]
             worksheet.write(row, 0, Ope.dt_date, date_form)
-            worksheet.write(row, 5, 'Somme de contrôle', string_form)
             # EXELL formula are stored in english but displayed in locale
-            worksheet.write_formula(row, 3, '=SUM(D3:D'+str(row)+')', currency_form)
-            worksheet.write_formula(row, 4, '=SUM(E3:E'+str(row)+')', currency_form)
+            worksheet.write_formula(row, 3, '=SUM(D3:D'+str(row)+')', currency_form, Ope.debit)
+            worksheet.write_formula(row, 4, '=SUM(E3:E'+str(row)+')', currency_form, Ope.credit)
+            worksheet.write(row, 5, Ope.desc, string_form)
             row = row + 1
-            for Ope in self.tail:
+            for Ope in self.tail[1:]:
                 worksheet.write_datetime(row, 0, Ope.dt_date, date_form)
                 worksheet.write_number(row, 3, Ope.debit, currency_form)
                 worksheet.write_number(row, 4, Ope.credit, currency_form)
