@@ -26,8 +26,9 @@ plusieurs façons :
    [pdftotext](https://github.com/jalan/pdftotext). Ce module est
    detecté et utilisé si présent.
 * *via* le programme pdftotext. 
-      * linux (Fedora, CentOS, RedHat, Debian, Alpine) : poppler-utils. Arch : poppler
-      * Mac OS : avec brew, voir [ici](http://macappstore.org/pdftotext/)
+  
+      * Linux-(Fedora, CentOS, RedHat, Debian, Alpine) : poppler-utils. Linux-Arch : poppler
+      * Mac OS X : avec brew, voir [ici](http://macappstore.org/pdftotext/)
       * Windows + Cygwin : paquet poppler disponible depuis 2012
       * Windows : télécharger les ["Xpdf Tools"](https://www.xpdfreader.com/download.html). Ce script utilise le fichier pdftotext.exe en version 3.03. Il ne fonctionne pas avec la version 3.04. La version 4.0 n'a pas été testée.
 
