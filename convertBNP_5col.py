@@ -595,7 +595,7 @@ class UnReleve:
                 worksheet.write_string(row, 5, Ope.desc, string_form)
                 row = row + 1
             # generate a control formula
-            Ope = self.liste[-2]
+            Ope = self.tail[0]
             worksheet.write(row, 0, Ope.dt_date, date_form)
             worksheet.write(row, 5, 'Somme de contrôle', string_form)
             # EXELL formula are stored in english but displayed in locale
