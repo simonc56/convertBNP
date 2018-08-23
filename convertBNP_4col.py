@@ -246,9 +246,9 @@ class UnReleve:
                 if 1 == len(dernier):
                     dernier = pattern.split(dernier[0])
                 # put your debug code here
-                if "MUTUELLE GENERALE" in ligne:
-                    if verbosity:
-                        pdb.set_trace()
+                # if "MUTUELLE GENERALE" in ligne:
+                #     if verbosity:
+                #         pdb.set_trace()
 
                 if estArgent(dernier):
                     # si l'operation précédente est complète, on la sauve
