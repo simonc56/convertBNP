@@ -80,8 +80,11 @@ class uneOperation:
 
     def __init__(self, date="", desc="", value="", debit=0.0, credit=0.0):
         self.date   = date
+        self.dt_date = None
         self.date_valeur = ""
+        self.dt_valeur = None
         self.date_oper = ""
+        self.dt_oper = None
         self.desc   = desc
         self.value  = value
         self.debit  = debit
@@ -89,6 +92,8 @@ class uneOperation:
         self.valide = True
         if not len(self.date) >= 10 or int(self.date[:2]) > 31 or int(self.date[3:4]) > 12:
             self.valide = False
+    def __repr__(self):
+        return 'Date:{} -- desc:{} -- debit {} -- credit {}'.format(self.date, self.desc, self.debit, self.credit)
 
     def estRemplie(self, operation=[]):
         ## return len(self.date) >=10 and len(desc) > 0 and len(value) > 0 \
@@ -105,7 +110,9 @@ class uneOperation:
                             self.date_oper = date_oper
                             break;
                         except ValueError as e:
-                            if 1 == num:  # du 020316
+                            if 1 == num or 4 == num:  
+                                # du 020316
+                                # facture(s) carte BLABLA du 
                                 try:
                                     date_oper = dt.strptime(date, '%d%m%y').strftime('%d/%m/%Y')
                                     self.date_oper = date_oper
@@ -114,19 +121,73 @@ class uneOperation:
                                     continue      
                             continue                 
         return resu
+    def __eq__(self, other):
+        if self.dt_oper is None: 
+            if other.dt_oper is None:
+                return self.dt_valeur == other.dt_valeur
+            else:
+                return self.dt_valeur == other.dt_oper
+        if other.dt_oper is None:
+            return self.dt_oper == other.dt_valeur
+        return self.dt_oper == other.dt_oper
+            
+    def __lt__(self, other):
+        if self.dt_oper is None: 
+            if other.dt_oper is None:
+                return self.dt_valeur < other.dt_valeur
+            else:
+                return self.dt_valeur < other.dt_oper
+        if other.dt_oper is None:
+            return self.dt_oper < other.dt_valeur
+        return self.dt_oper < other.dt_oper
 
+        # This is another sorting where "date_valeur" has priority
+        # if self.dt_oper is None or other.dt_oper is None:
+        #     return self.dt_valeur < other.dt_valeur
+        # else:
+        #     if self.dt_valeur < other.dt_valeur:
+        #         return True
+        #     else:
+        #         if self.dt_valeur == other.dt_valeur:
+        #             return self.dt_oper < other.dt_oper
+        #         else:
+        #             return False
 
 class UnReleve:
     """Un relevé de compte est une liste d'opérations bancaires
     sur une durée définie"""
     def __init__(self, nom="inconnu"):
         self.nom = nom
+        self.head = []
         self.liste = []
+        self.tail = []
+        self.monnaie = ""
 
-    def ajoute(self, Ope):
+    def __repr__(self):
+        return 'Nom : {} -- monnaie : {}'.format(self.nom, self.monnaie)
+
+    def ajoute(self, Ope, where=''):
         """Ajoute une opération à la fin de la liste du relevé bancaire"""
-        self.liste.append(Ope)
-
+        if 'head' in where:
+            try:
+                Ope.dt_date = dt.strptime(Ope.date, "%d/%m/%Y")
+            except ValueError as e:
+                pass
+            return self.head.append(Ope)
+        if 'tail' in where:
+            try:
+                Ope.dt_date = dt.strptime(Ope.date, "%d/%m/%Y")
+            except ValueError as e:
+                pass
+            return self.tail.append(Ope)
+        try:
+            Ope.dt_date = dt.strptime(Ope.date, "%d/%m/%Y")
+            Ope.dt_valeur =  dt.strptime(Ope.date_valeur, "%d/%m/%Y")
+            Ope.dt_oper =  dt.strptime(Ope.date_oper, "%d/%m/%Y")
+        except ValueError as e:
+            pass
+        return self.liste.append(Ope)
+            
     def ajoute_from_TXT(self, fichier_txt, annee, mois, verbosity=False, basedir=None):
         """Parse un fichier TXT pour en extraire les
         opérations bancaires et les mettre dans le relevé"""
@@ -149,11 +210,11 @@ class UnReleve:
                 num = num + 1
                 monnaie = monnaie_pat.search(ligne)
                 if monnaie:
-                    monnaie = monnaie.group(1)
+                    self.monnaie = monnaie.group(1)
                     break
 
             # detect bad pdf->txt conversions and abort
-            if not(isinstance(monnaie, str)):
+            if len(self.monnaie) < 1:
                 print("Le fichier {} semble mal formatté !".format(fichier_txt))
                 input("Bye bye :(")
                 exit()
@@ -198,13 +259,12 @@ class UnReleve:
                 raise ValueError(ligne+"ne peut pas être interprétée")
 
             # crée une entrée avec le solde initial
-            self.ajoute(Ope)
+            self.ajoute(Ope, 'head')
             if verbosity:
                 print('{}({}): {}'.format(num, len(ligne), ligne))
                 print('Solde initial: {}  au {}'.format(solde_init, basedate))
-                print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,
-                                                                           Ope.debit, Ope.credit))
-
+                print(Ope)
+                          
             if verbosity > 1:
                 pdb.set_trace()
 
@@ -237,8 +297,7 @@ class UnReleve:
                             if Ope.estRemplie(operation):  # on ajoute la précédente
                                 self.ajoute(Ope)           # opération si elle est valide
                                 if verbosity:   
-                                    print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
-                                                                                           Ope.debit, Ope.credit))      
+                                    print(Ope)
                                 Ope = uneOperation()
                                 date = ""
                                 la_date = ""
@@ -296,8 +355,7 @@ class UnReleve:
                     if Ope.estRemplie(operation):
                         self.ajoute(Ope)          # opération si elle est valide
                         if verbosity:                                                       
-                            print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
-                                                                                       Ope.debit, Ope.credit))
+                            print(Ope)
                         Ope = uneOperation()
                         operation = []                # we are on a new op
                     la_valeur = list2valeur(dernier)
@@ -323,8 +381,7 @@ class UnReleve:
                     if Ope.estRemplie(operation):          # on ajoute la précédente 
                         self.ajoute(Ope)          # opération si elle est valide
                         if verbosity:    
-                            print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
-                                                                                       Ope.debit, Ope.credit))      
+                            print(Ope)
                         Ope = uneOperation()
 
                     operation = []                # we are on a new op
@@ -354,8 +411,7 @@ class UnReleve:
             # end of main table             
             if Ope.estRemplie(operation):         # on ajoute la précédente
                 if verbosity:
-                    print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
-                                                                               Ope.debit, Ope.credit))      
+                    print(Ope)
                 self.ajoute(Ope)          # opération si elle est valide     
         
             if verbosity:
@@ -471,13 +527,15 @@ class UnReleve:
             OpeTot.debit = le_debit
             OpeTot.credit = le_credit
             # dump it
-            self.ajoute(OpeTot)
+            self.ajoute(OpeTot, 'tail')
 
             # crée une entrée avec le solde final
-            self.ajoute(Ope)
+            self.ajoute(Ope, 'tail')
             if verbosity: 
                 print('{}({}): {}'.format(num, len(ligne), ligne))
                 print('Solde final: {}  au {}'.format(solde_final, basedate))
+            # put entries in a more relevant order
+            self.liste.sort()    
 
     def genere_CSV(self, filename="", basedir=None):
         """crée un fichier CSV qui contiendra les opérations du relevé
@@ -491,7 +549,11 @@ class UnReleve:
                 filename_csv=os.path.join(basedir, filename_csv)
             with open(filename_csv, "w") as file:
                 file.write("Date"+CSV_SEP+"Date_Valeur"+CSV_SEP+"Date_Oper"+CSV_SEP+"Débit"+CSV_SEP+"Crédit"+CSV_SEP+"Opération\n")
+                for Ope in self.head:
+                    file.write(Ope.date+CSV_SEP+Ope.date_valeur+CSV_SEP+Ope.date_oper+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
                 for Ope in self.liste:
+                    file.write(Ope.date+CSV_SEP+Ope.date_valeur+CSV_SEP+Ope.date_oper+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
+                for Ope in self.tail:
                     file.write(Ope.date+CSV_SEP+Ope.date_valeur+CSV_SEP+Ope.date_oper+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
                 file.close()
         filename_xlsx = filename + ".xlsx"
@@ -499,28 +561,52 @@ class UnReleve:
             print('[   ->xlsx] Export     : '+filename_xlsx)
             # pdb.set_trace()
             if basedir:
-                filename_xlsx=os.path.join(basedir, filename_xlsx)
+                filename_xlsx = os.path.join(basedir, filename_xlsx)
             workbook = xlsxwriter.Workbook(filename_xlsx)
             worksheet = workbook.add_worksheet()
             worksheet.set_column(0, 2, 12)
             worksheet.set_column(3, 4, 10)
             worksheet.set_column(5, 5, 64)
             cell_format = workbook.add_format({'bold': True})
+            cell_format.set_center_across()
+            currency_form = workbook.add_format()
+            currency_form.set_num_format(8) # currency
+            date_form = workbook.add_format({'num_format':'DD/MM/YYYY'})
+            string_form = workbook.add_format()
+            string_form.set_indent(1)
+
             worksheet.write_row('A1', ["Date", "Date_Valeur", "Date_Oper", "Débit", "Crédit", "Opération"], cell_format);
             row = 1
-            for Ope in self.liste[:-2]:
-                worksheet.write_row(row, 0, [Ope.date, Ope.date_valeur, Ope.date_oper, Ope.debit, Ope.credit, Ope.desc])
+            for Ope in self.head:
+                worksheet.write_datetime(row, 0, Ope.dt_date, date_form)
+                worksheet.write_number(row, 3, Ope.debit, currency_form)
+                worksheet.write_number(row, 4, Ope.credit, currency_form)
+                worksheet.write_string(row, 5, Ope.desc, string_form)
+                row = row + 1
+
+            for Ope in self.liste:
+                worksheet.write_datetime(row, 0, Ope.dt_date, date_form)
+                if Ope.dt_valeur:
+                    worksheet.write_datetime(row, 1, Ope.dt_valeur, date_form)
+                if Ope.dt_oper:
+                    worksheet.write_datetime(row, 2, Ope.dt_oper, date_form)
+                worksheet.write_number(row, 3, Ope.debit, currency_form)
+                worksheet.write_number(row, 4, Ope.credit, currency_form)
+                worksheet.write_string(row, 5, Ope.desc, string_form)
                 row = row + 1
             # generate a control formula
             Ope = self.liste[-2]
-            worksheet.write(row, 0, Ope.date)
-            worksheet.write(row, 5, 'Somme de contrôle')
+            worksheet.write(row, 0, Ope.dt_date, date_form)
+            worksheet.write(row, 5, 'Somme de contrôle', string_form)
             # EXELL formula are stored in english but displayed in locale
-            worksheet.write_formula(row, 3, '=SUM(D3:D'+str(row)+')')
-            worksheet.write_formula(row, 4, '=SUM(E3:E'+str(row)+')')
+            worksheet.write_formula(row, 3, '=SUM(D3:D'+str(row)+')', currency_form)
+            worksheet.write_formula(row, 4, '=SUM(E3:E'+str(row)+')', currency_form)
             row = row + 1
-            for Ope in self.liste[-2:]:
-                worksheet.write_row(row, 0, [Ope.date, Ope.date_valeur, Ope.date_oper, Ope.debit, Ope.credit, Ope.desc])
+            for Ope in self.tail:
+                worksheet.write_datetime(row, 0, Ope.dt_date, date_form)
+                worksheet.write_number(row, 3, Ope.debit, currency_form)
+                worksheet.write_number(row, 4, Ope.credit, currency_form)
+                worksheet.write_string(row, 5, Ope.desc, string_form)
                 row = row + 1
             workbook.close()
 
