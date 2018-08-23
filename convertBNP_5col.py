@@ -640,9 +640,6 @@ def affiche(liste):
         print(ligne)
     print("")
 
-def getVarFromFile(filename):
-    global PREFIXE_COMPTE
-   
 
 # On demarre ici
 def main(*args, **kwargs):
