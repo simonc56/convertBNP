@@ -27,10 +27,10 @@ plusieurs façons :
    detecté et utilisé si présent.
 * *via* le programme pdftotext. 
   
-      * Linux-(Fedora, CentOS, RedHat, Debian, Alpine) : poppler-utils. Linux-Arch : poppler
-      * Mac OS X : avec brew, voir [ici](http://macappstore.org/pdftotext/)
-      * Windows + Cygwin : paquet poppler disponible depuis 2012
-      * Windows : télécharger les ["Xpdf Tools"](https://www.xpdfreader.com/download.html). Ce script utilise le fichier pdftotext.exe en version 3.03. Il ne fonctionne pas avec la version 3.04. La version 4.0 n'a pas été testée.
+    * Linux-(Fedora, CentOS, RedHat, Debian, Alpine) : poppler-utils. Linux-Arch : poppler
+    * Mac OS X : avec brew, voir [ici](http://macappstore.org/pdftotext/)
+    * Windows + Cygwin : paquet poppler disponible depuis 2012
+    * Windows : télécharger les ["Xpdf Tools"](https://www.xpdfreader.com/download.html). Ce script utilise le fichier pdftotext.exe en version 3.03. Il ne fonctionne pas avec la version 3.04. La version 4.0 n'a pas été testée.
 
 Au moins une de ces approches doit être disponible, sans quoi le
 script s'arrête directement.
@@ -62,11 +62,11 @@ du dépôt GitHub.
 
 2. Créer un environnement virtuel :
 
-         2.1 en ligne de commande, à partir de ce répertoire :
+      2.1 en ligne de commande, à partir de ce répertoire :
    
-                $ python3 -mvenv .
+           $ python3 -mvenv .
            
-         2.2 en mode graphique : créer un environnement virtuel, choisir comme répertoire de 
+      2.2 en mode graphique : créer un environnement virtuel, choisir comme répertoire de 
          destination celui créé à partir de GitHub
 
 3. activer cet environnement et installer les module python "XlsxWriter" et "pdftotext" *via* pip :
@@ -86,7 +86,7 @@ du dépôt GitHub.
    dont le contenu, en une seule ligne, correspond à la partie fixe
    des relevés :
 
-                       300040012300001234567
+            300040012300001234567
 
       - --dir : un spécificateur relatif ou absolu du répertoire
     contenant les fichiers à transformer. Les fichiers générés seront
@@ -135,7 +135,7 @@ du dépôt GitHub.
 
 (dans emacs, avec gud  et deboguage : cliquer sur "Python", "debugger")
 
-             Run pdb (like this): python3 -mpdb convertBNP_5col.py --dir "../BNP FR"
+          Run pdb (like this): python3 -mpdb convertBNP_5col.py --dir "../BNP FR"
 
 ## Script en action (exemple)
 
