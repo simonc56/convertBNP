@@ -592,8 +592,8 @@ def mysafe_atof(valeur):
         if VERBOSITY > 1:
             pdb.set_trace()
         else:
-            if e: raise e
             if f: raise f
+            if e: raise e
         
     return la_valeur
 
