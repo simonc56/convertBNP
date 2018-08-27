@@ -34,6 +34,9 @@ CSV_SEP        = ";"
 deja_en_csv    = ""
 deja_en_xlsx   = ""
 
+# make verbosity a global variable
+VERBOSITY = 0
+
 # quelques motifs qui seront cherchés ... souvent
 pattern = re.compile('(\W+)')
 monnaie_pat = re.compile('Monnaie du compte\s*: (\w*)')
@@ -99,7 +102,7 @@ class UnReleve:
             pass
         self.liste.append(Ope)
 
-    def ajoute_from_TXT(self, fichier_txt, annee, mois, verbosity=False):
+    def ajoute_from_TXT(self, fichier_txt, annee, mois):
         """Parse un fichier TXT pour en extraire les
         opérations bancaires et les mettre dans le relevé"""
         print('[txt->   ] Lecture    : '+fichier_txt)
@@ -110,7 +113,7 @@ class UnReleve:
             page_width = 0
             num = 0
 
-            if verbosity > 1:
+            if VERBOSITY > 1:
                 pdb.set_trace()
 
             # ignore les lignes avec les coordonnées et le blabla
@@ -144,7 +147,7 @@ class UnReleve:
                     continue
 
             # montant ?
-            la_valeur = locale.atof(''.join(operation[Ope+1:]))
+            la_valeur = mysafe_atof(''.join(operation[Ope+1:]))
             ligne = ' '.join(operation[:Ope+1])
 
             # dans quel sens ?      
@@ -159,13 +162,13 @@ class UnReleve:
 
             # crée une entrée avec le solde initial
             self.ajoute(Ope)
-            if verbosity:
+            if VERBOSITY:
                 print('{}({}): {}'.format(num, len(ligne), ligne))
                 print('Solde initial: {}  au {}'.format(solde_init, basedate))
                 print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,
                                                                            Ope.debit, Ope.credit))
 
-            if verbosity > 1:
+            if VERBOSITY > 1:
                 pdb.set_trace()
 
             Ope = uneOperation()
@@ -190,13 +193,13 @@ class UnReleve:
                         # This is one of the strange lines with a numeric code at the end
                         eot = (0 == len(ligne[:Debit_pos].split()))
                     if (eot):
-                        if verbosity > 1:
+                        if VERBOSITY > 1:
                             pdb.set_trace()
                         Table = False
                         if len(operation) > 0:
                             if Ope.estRemplie(operation):  # on ajoute la précédente
                                 self.ajoute(Ope)           # opération si elle est valide
-                                if verbosity:   
+                                if VERBOSITY:   
                                     print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
                                                                                            Ope.debit, Ope.credit))      
                                 Ope = uneOperation()
@@ -219,19 +222,19 @@ class UnReleve:
 
                 # this line ends the table
                 if re.match('.*?total des montants\s', ligne, re.IGNORECASE):
-                    if verbosity:
+                    if VERBOSITY:
                         print('{}({}): {}'.format(num, len(ligne), ligne))
-                    if verbosity > 1:
+                    if VERBOSITY > 1:
                         pdb.set_trace()
                     break
                 if re.match('.*?total des operations\s', ligne, re.IGNORECASE):
-                    if verbosity:   
+                    if VERBOSITY:   
                         print('{}({}): {}'.format(num, len(ligne), ligne))
-                    if verbosity > 1:   
+                    if VERBOSITY > 1:   
                         pdb.set_trace()
                     break
 
-                if verbosity:
+                if VERBOSITY:
                     print('{}({}): {}'.format(num, len(ligne), ligne))
 
                 date_ou_pas = ligne[:Nature_pos].split()  # premier caractères de la ligne (date?)
@@ -247,29 +250,27 @@ class UnReleve:
                     dernier = pattern.split(dernier[0])
                 # put your debug code here
                 # if "MUTUELLE GENERALE" in ligne:
-                #     if verbosity:
+                #     if VERBOSITY:
                 #         pdb.set_trace()
 
                 if estArgent(dernier):
                     # si l'operation précédente est complète, on la sauve
                     if Ope.estRemplie(operation):
                         self.ajoute(Ope)          # opération si elle est valide
-                        if verbosity:                                                       
+                        if VERBOSITY:                                                       
                             print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
                                                                                        Ope.debit, Ope.credit))
                         Ope = uneOperation()
                         operation = []                # we are on a new op
                     la_valeur = list2valeur(dernier)
-                    try:
-                        # there are odds and even pages. That's odd
-                        if len(ligne) > Credit_pos:
-                            Ope.credit = locale.atof(la_valeur)
-                            somme_cred += Ope.credit
-                        else:
-                            Ope.debit = locale.atof(la_valeur)
-                            somme_deb += Ope.debit
-                    except ValueError as e:
-                        print('Failed to convert {} to a float: {}'.format(la_valeur, e))
+                    # there are odds and even pages. That's odd
+                    if len(ligne) > Credit_pos:
+                        Ope.credit = mysafe_atof(la_valeur)
+                        somme_cred += Ope.credit
+                    else:
+                        Ope.debit = mysafe_atof(la_valeur)
+                        somme_deb += Ope.debit
+                    
                     previous_ligne = ligne    
                     ligne = ligne[:Debit_pos]     # truncate the money amount
 
@@ -280,7 +281,7 @@ class UnReleve:
                         date_valeur = pattern.split(date_valeur[0])
                     if Ope.estRemplie(operation):          # on ajoute la précédente 
                         self.ajoute(Ope)          # opération si elle est valide
-                        if verbosity:    
+                        if VERBOSITY:    
                             print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
                                                                                        Ope.debit, Ope.credit))      
                         Ope = uneOperation()
@@ -311,15 +312,15 @@ class UnReleve:
 
             # end of main table             
             if Ope.estRemplie(operation):         # on ajoute la précédente 
-                if verbosity:
+                if VERBOSITY:
                     print('Date:{} -- desc:{} -- debit {} -- credit {}'.format(Ope.date, Ope.desc,  
                                                                                Ope.debit, Ope.credit))      
                 self.ajoute(Ope)          # opération si elle est valide     
         
-            if verbosity:
+            if VERBOSITY:
                 print('Exited main loop')
                 print('{}({}): {}'.format(num, len(ligne), ligne))
-                if verbosity > 1:
+                if VERBOSITY > 1:
                     pdb.set_trace()
 
             operation = ligne.split()
@@ -345,15 +346,10 @@ class UnReleve:
                     break
 
             le_credit = ''.join(operation[start:count])
-            try:
-                le_debit = locale.atof(le_debit)
-            except ValueError as e:
-                print('Failed to convert {} to a float: {}'.format(le_debit, e))
-            try:
-                le_credit = locale.atof(le_credit)
-            except ValueError as e:
-                print('Failed to convert {} to a float: {}'.format(le_debit, e))
-
+            
+            le_debit = mysafe_atof(le_debit)
+            le_credit = mysafe_atof(le_credit)
+            
             # here, we have "solde .. au
             for ligne in file:
                 if re.search('SOLDE\s+', ligne): 
@@ -368,13 +364,9 @@ class UnReleve:
                     continue
 
             # montant ?
-            try:
-                la_valeur = locale.atof(''.join(operation[num+1:]))
-                ligne = ' '.join(operation[:num+1])
-            except ValueError as e:
-                print(operation)
-                pdb.set_trace()
-
+            la_valeur = mysafe_atof(''.join(operation[num+1:]))
+            ligne = ' '.join(operation[:num+1])
+            
             # dans quel sens ?
             if re.match('crediteur', operation[1], re.IGNORECASE):
                 Ope = uneOperation(basedate, ligne, "", 0.0, la_valeur)
@@ -386,7 +378,7 @@ class UnReleve:
                 raise ValueError(ligne+" ne peut pas être interprétée")
             # check that solde_deb = le_debit;
             if abs(somme_deb - le_debit) > .01:
-                if verbosity:
+                if VERBOSITY:
                     print("La somme des débits {} n'est pas égale au débit totat {}".format(somme_deb, le_debit))         
                     pdb.set_trace()
                 else:
@@ -394,7 +386,7 @@ class UnReleve:
 
             # check that solde_cred = le_credit;
             if abs(somme_cred - le_credit) > .01:
-                if verbosity:
+                if VERBOSITY:
                     print("La somme des crédits {} n'est pas égale au crédit total {}".format(somme_cred, le_credit))               
                     pdb.set_trace()
                 else:
@@ -402,7 +394,7 @@ class UnReleve:
             # check that solde_init - le_credit + le_debit == solde_final
             mouvements = solde_init - le_debit + le_credit
             if abs(solde_final - mouvements) > .01:
-                if verbosity:
+                if VERBOSITY:
                     print("La somme des mouvements {} n'arrive pas au solde final {}".format(mouvements, solde_final))      
                     pdb.set_trace()
                 else:
@@ -418,7 +410,7 @@ class UnReleve:
 
             # crée une entrée avec le solde final
             self.ajoute(Ope)
-            if verbosity: 
+            if VERBOSITY: 
                 print('{}({}): {}'.format(num, len(ligne), ligne))
                 print('Solde final: {}  au {}'.format(solde_final, basedate))
 
@@ -581,6 +573,30 @@ def affiche(liste):
         print(ligne)
     print("")
 
+def mysafe_atof(valeur):
+    """Réalise atof avec prise en compte de plusieurs erreurs"""
+    la_valeur = None
+    e = None
+    f = None
+    try:
+        la_valeur =  locale.atof(valeur)
+    except ValueError as e:
+        if dp != '.':
+            try:
+                la_valeur = locale.atof(valeur.replace('.', ts))
+            except ValueError as f: 
+                print('Failed to convert {} to a float: {}'.format(valeur, f))
+    if la_valeur is None:
+        myloc = locale.getdefaultlocale()
+        print('valeur par défaut: language {}, code {}\n'.format(myloc[0], myloc[1]))
+        if VERBOSITY > 1:
+            pdb.set_trace()
+        else:
+            if e: raise e
+            if f: raise f
+        
+    return la_valeur
+
 # On demarre ici
 def main(*args, **kwargs):
     print('\n******************************************************')
@@ -592,18 +608,22 @@ def main(*args, **kwargs):
         input("Bye bye :(")
         exit()
 
+    global PREFIXE_COMPTE 
+    global VERBOSITY
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbosity", type=int, default=0, help="increase output verbosity")
     parser.add_argument("--prefixe", help="prefixe des fichiers à traiter")
     myargs = parser.parse_args()
 
-    global PREFIXE_COMPTE
+    if myargs.verbosity:
+        VERBOSITY = myargs.verbosity
 
     if myargs.prefixe:
         PREFIXE_COMPTE = myargs.prefixe
     # else:
     #     PREFIXE_COMPTE = CSV_SEP
-
+ 
     chemin = os.getcwd()
     fichiers = os.listdir(chemin)
 
@@ -672,11 +692,11 @@ def main(*args, **kwargs):
             xlsx= PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if csv not in deja_en_csv:
                 releve = UnReleve()
-                releve.ajoute_from_TXT(txt, annee, mois, myargs.verbosity)
+                releve.ajoute_from_TXT(txt, annee, mois)
                 releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois)
             elif xlsx not in deja_en_xlsx: 
                 releve = UnReleve()
-                releve.ajoute_from_TXT(txt, annee, mois, myargs.verbosity)
+                releve.ajoute_from_TXT(txt, annee, mois)
                 releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois)
 
     # on efface les fichiers TXT
