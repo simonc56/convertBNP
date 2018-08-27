@@ -65,6 +65,13 @@ footer_pat = re.compile('BNP PARIBAS.*au capital')
 locale.setlocale(locale.LC_NUMERIC, '')
 # the decimal point in use
 dp = locale.localeconv()['decimal_point']
+if dp != ',':
+    # we have a problem -- force locale to fr_FR
+    print("Le point décimal déterminé par l'environnement est incorrect\n")
+    print("La valeur des locale va être modifiée en 'fr_FR'\n")
+    locale.setlocale(locale.LC_NUMERIC, 'fr_FR')
+    dp = locale.localeconv()['decimal_point']
+ts = locale.localeconv()['thousands_sep']
 
 if os.name == 'nt':
     PDFTOTEXT = 'pdftotext.exe'
@@ -245,7 +252,7 @@ class UnReleve:
                     continue
 
             # montant ?
-            la_valeur = locale.atof(''.join(operation[Ope+1:]))
+            la_valeur = mysafe_atof(''.join(operation[Ope+1:]))
             ligne = ' '.join(operation[:Ope+1])
 
             # dans quel sens ?      
@@ -362,10 +369,10 @@ class UnReleve:
                     try:
                         # there are odd and even pages. That's odd !
                         if dp in ligne[Debit_pos:Credit_pos]:
-                            Ope.debit = locale.atof(la_valeur)
+                            Ope.debit = mysafe_atof(la_valeur)
                             somme_deb += Ope.debit            
                         else:                
-                            Ope.credit = locale.atof(la_valeur)
+                            Ope.credit = mysafe_atof(la_valeur)
                             somme_cred += Ope.credit
                             
                     except ValueError as e:
@@ -452,18 +459,12 @@ class UnReleve:
                     
             # convert both data, if present
             if (len(le_debit) > 0):
-                try:
-                    le_debit = locale.atof(le_debit)
-                except ValueError as e:
-                    print('Failed to convert {} to a float: {}'.format(le_debit, e))
+                le_debit = mysafe_atof(le_debit)
             else:
                 le_debit = 0.0
                     
             if (len(le_credit) > 0):
-                try:
-                    le_credit = locale.atof(le_credit)
-                except ValueError as e:
-                    print('Failed to convert {} to a float: {}'.format(le_credit, e))
+                le_credit = mysafe_atof(le_credit)
             else:
                 le_credit = 0.0
 
@@ -481,13 +482,8 @@ class UnReleve:
                     continue
 
             # montant ?
-            try:
-                la_valeur = locale.atof(''.join(operation[num+1:]))
-                ligne = ' '.join(operation[:num+1])
-            except ValueError as e:
-                print(operation)
-                pdb.set_trace()
-
+            la_valeur = mysafe_atof(''.join(operation[num+1:]))
+            ligne = ' '.join(operation[:num+1])
             # dans quel sens ?
             if re.match('crediteur', operation[1], re.IGNORECASE):
                 Ope = uneOperation(basedate, ligne, "", 0.0, la_valeur)
@@ -726,6 +722,21 @@ def affiche(liste):
         print(ligne)
     print("")
 
+def mysafe_atof(valeur):
+    """Réalise atof avec prise en compte de plusieurs erreurs"""
+    la_valeur = None
+    try:
+        la_valeur =  locale.atof(valeur)
+    except ValueError as e:
+        if dp != '.':
+            try:
+                la_valeur = locale.atof(valeur.replace('.', ts))
+            except ValueError as f: 
+                print('Failed to convert {} to a float: {}'.format(valeur, f))
+    if la_valeur is None:
+        myloc = locale.getdefaultlocale()
+        print('valeur par défaut: language {}, code {}\n'.format(myloc[0], myloc[1]))
+    return la_valeur
 
 # On demarre ici
 def main(*args, **kwargs):
