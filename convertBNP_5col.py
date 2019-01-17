@@ -82,7 +82,7 @@ if os.name == 'nt':
     PREFIXE_CSV = "Relevé BNP "
 else:
     PDFTOTEXT = 'pdftotext'
-    PREFIXE_CSV = "Relevé_BNP_"     
+    PREFIXE_CSV = "Relevé_BNP_"
 
 
 class uneOperation:
@@ -298,8 +298,6 @@ class UnReleve:
                     vide = vide + 1
                     if vide < 3:
                         continue
-                else:
-                    vide = 0
 
                 if Table:
                     # detect footer
@@ -324,6 +322,8 @@ class UnReleve:
                                 la_date = ""
                                 operation = []
                         continue
+                    if len(ligne) > 1:
+                        vide = 0
 
                 if Table is False:
                     # search for new page header -- compute actual page width
@@ -926,5 +926,5 @@ def main(*args, **kwargs):
     return 0
 
 
-if __name__== "__main__":
+if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
