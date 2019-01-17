@@ -869,7 +869,7 @@ def main(*args, **kwargs):
             annee = operation[num+2][0:4]
             mois = operation[num+2][4:6]
             csv = PREFIXE_CSV+annee+'-'+mois+".csv"
-            xlsxb= PREFIXE_CSV+annee+'-'+mois+".xlsx"
+            xlsx = PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if csv not in deja_en_csv:
                 touch = touch + 1
                 extraction_PDF(releve, deja_en_txt, temp_list, myargs.dir)
