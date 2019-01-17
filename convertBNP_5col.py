@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 #
 # auteur             2012 -- 2016 twolaw_at_free_dot_fr
-#                    2017 -- 2018 Pascal Dupuis <cdemills@gmail.com>
+#                    2017 -- 2019 Pascal Dupuis <cdemills@gmail.com>
 # nom                convertBNP_5col.py
 # description        Lit les relevés bancaires de la BNP en PDF dans le répertoire courant pour en générer des CSV
 #                    Nécessite le fichier pdftotext.exe en version 3.03 issu de l'archive xpdf (gratuit, GPL2)
@@ -21,7 +21,7 @@
 # fichiers PDF de la forme RCHQ_101_300040012300001234567_20131026_2153.PDF
 
 # Copyright 2012-2016 twolaw_at_free_dot_fr
-# Copyright 2017-2018 Pascal Dupuis <cdemills@gmail.com>
+# Copyright 2017-2019 Pascal Dupuis <cdemills@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -65,7 +65,7 @@ monnaie_pat = re.compile('Monnaie du compte\s*: (\w*)')
 nature_pat = re.compile('D\s*ate\s+N\s*ature\s+des\s+')
 footer_pat = re.compile('BNP PARIBAS.*au capital')
 
-orig_loc = locale.getlocale() 
+orig_loc = locale.getlocale()
 locale.setlocale(locale.LC_ALL, '')
 # the decimal point in use
 dp = locale.localeconv()['decimal_point']
@@ -79,10 +79,10 @@ ts = locale.localeconv()['thousands_sep']
 
 if os.name == 'nt':
     PDFTOTEXT = 'pdftotext.exe'
-    PREFIXE_CSV    = "Relevé BNP "
-else: 
+    PREFIXE_CSV = "Relevé BNP "
+else:
     PDFTOTEXT = 'pdftotext'
-    PREFIXE_CSV    = "Relevé_BNP_"     
+    PREFIXE_CSV = "Relevé_BNP_"     
 
 
 class uneOperation:
@@ -103,13 +103,15 @@ class uneOperation:
         self.valide = True
         if not len(self.date) >= 10 or int(self.date[:2]) > 31 or int(self.date[3:4]) > 12:
             self.valide = False
+
     def __repr__(self):
-        return 'Date:{} -- desc:{} -- debit {} -- credit {}'.format(self.date, self.desc, self.debit, self.credit)
+        return 'Date:{} -- desc:{} -- debit {} -- credit {}'.format(self.date, self.desc,
+                                                                    self.debit, self.credit)
 
     def estRemplie(self, operation=[]):
         ## return len(self.date) >=10 and len(desc) > 0 and len(value) > 0 \
         ##    and (len(credit) > 0 or len(debit) > 0)
-        resu = len(self.date) >=10 and (self.credit > 0.0 or self.debit > 0.0) 
+        resu = len(self.date) >= 10 and (self.credit > 0.0 or self.debit > 0.0)
         if resu:
             # this one is OK, fill its description
             if len(operation):
@@ -121,19 +123,20 @@ class uneOperation:
                             self.date_oper = date_oper
                             break;
                         except ValueError as e:
-                            if 1 == num or 4 == num:  
+                            if 1 == num or 4 == num:
                                 # du 020316
-                                # facture(s) carte BLABLA du 
+                                # facture(s) carte BLABLA du
                                 try:
                                     date_oper = dt.strptime(date, '%d%m%y').strftime('%d/%m/%Y')
                                     self.date_oper = date_oper
                                     break;
                                 except ValueError as e:
-                                    continue      
-                            continue                 
+                                    continue
+                            continue         
         return resu
+
     def __eq__(self, other):
-        if self.dt_oper is None: 
+        if self.dt_oper is None:
             if other.dt_oper is None:
                 return self.dt_valeur == other.dt_valeur
             else:
@@ -141,9 +144,9 @@ class uneOperation:
         if other.dt_oper is None:
             return self.dt_oper == other.dt_valeur
         return self.dt_oper == other.dt_oper
-            
+
     def __lt__(self, other):
-        if self.dt_oper is None: 
+        if self.dt_oper is None:
             if other.dt_oper is None:
                 return self.dt_valeur < other.dt_valeur
             else:
@@ -163,6 +166,7 @@ class uneOperation:
         #             return self.dt_oper < other.dt_oper
         #         else:
         #             return False
+
 
 class UnReleve:
     """Un relevé de compte est une liste d'opérations bancaires
@@ -193,12 +197,12 @@ class UnReleve:
             return self.tail.append(Ope)
         try:
             Ope.dt_date = dt.strptime(Ope.date, "%d/%m/%Y")
-            Ope.dt_valeur =  dt.strptime(Ope.date_valeur, "%d/%m/%Y")
-            Ope.dt_oper =  dt.strptime(Ope.date_oper, "%d/%m/%Y")
+            Ope.dt_valeur = dt.strptime(Ope.date_valeur, "%d/%m/%Y")
+            Ope.dt_oper = dt.strptime(Ope.date_oper, "%d/%m/%Y")
         except ValueError as e:
             pass
         return self.liste.append(Ope)
-            
+
     def ajoute_from_TXT(self, fichier_txt, annee, mois, basedir=None):
         """Parse un fichier TXT pour en extraire les
         opérations bancaires et les mettre dans le relevé"""
@@ -259,7 +263,7 @@ class UnReleve:
             la_valeur = mysafe_atof(''.join(operation[Ope+1:]))
             ligne = ' '.join(operation[:Ope+1])
 
-            # dans quel sens ?      
+            # dans quel sens ?
             if re.match('crediteur', operation[1], re.IGNORECASE):
                 Ope = uneOperation(basedate, ligne, "", 0.0, la_valeur)
                 solde_init = la_valeur
@@ -275,7 +279,7 @@ class UnReleve:
                 print('{}({}): {}'.format(num, len(ligne), ligne))
                 print('Solde initial: {}  au {}'.format(solde_init, basedate))
                 print(Ope)
-                          
+
             if VERBOSITY > 1:
                 pdb.set_trace()
 
@@ -292,14 +296,20 @@ class UnReleve:
                 num = num+1
                 if len(ligne) < 2:           # ligne vide, trait du tableau
                     vide = vide + 1
-                    continue
+                    if vide < 3:
+                        continue
+                else:
+                    vide = 0
 
                 if Table:
                     # detect footer
-                    eot = footer_pat.search(ligne)
-                    if eot is None:
-                        # This is one of the strange lines with a numeric code at the end
-                        eot = (0 == len(ligne[:Debit_pos].split()))
+                    if (vide > 2):
+                        eot = True
+                    else:
+                        eot = footer_pat.search(ligne)
+                        if eot is None:
+                            # This is one of the strange lines with a numeric code at the end
+                            eot = (0 == len(ligne[:Debit_pos].split()))
                     if (eot):
                         if VERBOSITY > 1:
                             pdb.set_trace()
@@ -307,7 +317,7 @@ class UnReleve:
                         if len(operation) > 0:
                             if Ope.estRemplie(operation):  # on ajoute la précédente
                                 self.ajoute(Ope)           # opération si elle est valide
-                                if VERBOSITY:   
+                                if VERBOSITY:
                                     print(Ope)
                                 Ope = uneOperation()
                                 date = ""
@@ -317,7 +327,7 @@ class UnReleve:
 
                 if Table is False:
                     # search for new page header -- compute actual page width
-                    if nature_pat.search(ligne): 
+                    if nature_pat.search(ligne):
                         Table = True        # where back analysing data
                         Date_pos = re.search('D\s*ate', ligne).start()
                         Nature_pos = re.search('N\s*ature', ligne).start()
@@ -336,9 +346,9 @@ class UnReleve:
                         pdb.set_trace()
                     break
                 if re.match('.*?total des operations\s', ligne, re.IGNORECASE):
-                    if VERBOSITY:   
+                    if VERBOSITY:
                         print('{}({}): {}'.format(num, len(ligne), ligne))
-                    if VERBOSITY > 1:   
+                    if VERBOSITY > 1:
                         pdb.set_trace()
                     break
 
@@ -365,7 +375,7 @@ class UnReleve:
                     # si l'operation précédente est complète, on la sauve
                     if Ope.estRemplie(operation):
                         self.ajoute(Ope)          # opération si elle est valide
-                        if VERBOSITY:                                                       
+                        if VERBOSITY:
                             print(Ope)
                         Ope = uneOperation()
                         operation = []                # we are on a new op
@@ -374,8 +384,8 @@ class UnReleve:
                         # there are odd and even pages. That's odd !
                         if dp in ligne[Debit_pos:Credit_pos]:
                             Ope.debit = mysafe_atof(la_valeur)
-                            somme_deb += Ope.debit            
-                        else:                
+                            somme_deb += Ope.debit
+                        else:
                             Ope.credit = mysafe_atof(la_valeur)
                             somme_cred += Ope.credit
                             
@@ -385,13 +395,13 @@ class UnReleve:
                     ligne = ligne[:Debit_pos]     # truncate the money amount
 
                 if estDate(date_ou_pas):          # est-ce une date
-                    date_valeur = ligne[Valeur_pos:Debit_pos].split() # il y a aussi une date valeur
+                    date_valeur = ligne[Valeur_pos:Debit_pos].split()  # il y a aussi une date valeur
                     if 1 == len(date_valeur):
 
                         date_valeur = pattern.split(date_valeur[0])
-                    if Ope.estRemplie(operation):          # on ajoute la précédente 
+                    if Ope.estRemplie(operation):          # on ajoute la précédente
                         self.ajoute(Ope)          # opération si elle est valide
-                        if VERBOSITY:    
+                        if VERBOSITY:
                             print(Ope)
                         Ope = uneOperation()
 
@@ -399,9 +409,9 @@ class UnReleve:
                     la_date = ''
                     date = date_ou_pas
 
-                operation.extend(ligne[Nature_pos:Valeur_pos].split())   
+                operation.extend(ligne[Nature_pos:Valeur_pos].split())
 
-                if date : # si on a deja trouvé une date
+                if date:  # si on a deja trouvé une date
                     la_date = list2date(date, annee, mois)
                     date = ""
                     if (len(date_valeur) < 3):
@@ -419,19 +429,19 @@ class UnReleve:
                     Ope.date = la_date
                     Ope.date_valeur = la_date_valeur
 
-            # end of main table             
+            # end of main table
             if Ope.estRemplie(operation):         # on ajoute la précédente
                 if VERBOSITY:
                     print(Ope)
-                self.ajoute(Ope)          # opération si elle est valide     
-        
+                self.ajoute(Ope)          # opération si elle est valide
+
             if VERBOSITY:
                 print('Exited main loop')
                 print('{}({}): {}'.format(num, len(ligne), ligne))
                 if VERBOSITY > 1:
                     pdb.set_trace()
 
-            # this part may fail if there is no "Débit" field  
+            # this part may fail if there is no "Débit" field
             operation = ligne.split()
             start = 3
             count = 3
@@ -445,28 +455,29 @@ class UnReleve:
                     break
             dernier = pattern.split(ligne[Debit_pos:Credit_pos].strip())
             # check it's really a debit field
-            if (estArgent(dernier)):        
+            if (estArgent(dernier)):
                 le_debit = ''.join(operation[start:count])
                 start = count
                 count = start
                 for elem in operation[count:]:
                     count = count + 1
                     if dp in elem:
-                        if (1 == len(elem)):        # in the old listings, there were extraneous spaces
+                        if (1 == len(elem)):        
+                            # in the old listings, there were extraneous spaces
                             count = count + 1
                         break
 
                 le_credit = ''.join(operation[start:count])
             else:
-                le_debit  = ''
+                le_debit = ''
                 le_credit = ''.join(operation[start:count])
-                    
+
             # convert both data, if present
             if (len(le_debit) > 0):
                 le_debit = mysafe_atof(le_debit)
             else:
                 le_debit = 0.0
-                    
+
             if (len(le_credit) > 0):
                 le_credit = mysafe_atof(le_credit)
             else:
@@ -474,14 +485,14 @@ class UnReleve:
 
             # here, we have "solde .. au
             for ligne in file:
-                if re.search('SOLDE\s+', ligne): 
+                if re.search('SOLDE\s+', ligne):
                     break
 
             operation = ligne.split()
             for num, date in enumerate(operation):
                 try:
                     basedate = dt.strptime(date, '%d.%m.%Y').strftime('%d/%m/%Y')
-                    break;
+                    break
                 except ValueError as e:
                     continue
 
@@ -500,28 +511,37 @@ class UnReleve:
             # check that solde_deb = le_debit;
             if abs(somme_deb - le_debit) > .01:
                 if VERBOSITY:
-                    print("La somme des débits {} n'est pas égale au débit totat {}".format(somme_deb, le_debit))         
+                    print("La somme des débits {} n'est pas égale au débit totat {}".format(
+                        somme_deb, le_debit))
                     pdb.set_trace()
                 else:
-                    raise ValueError('La somme des débits {} n''est pas égale au débit total {}'.format(somme_deb, le_debit))
+                    raise ValueError(
+                        'La somme des débits {} n''est pas égale au débit total {}'.format(
+                            somme_deb, le_debit))
 
             # check that solde_cred = le_credit;
             if abs(somme_cred - le_credit) > .01:
                 if VERBOSITY:
-                    print("La somme des crédits {} n'est pas égale au crédit total {}".format(somme_cred, le_credit))               
+                    print("La somme des crédits {} n'est pas égale au crédit total {}".format(
+                        somme_cred, le_credit))
                     pdb.set_trace()
                 else:
-                    raise ValueError('La somme des crédits {} n''est pas égale au crédit totat {}'.format(somme_cred, le_credit))                    
+                    raise ValueError(
+                        'La somme des crédits {} n''est pas égale au crédit totat {}'.format(
+                            somme_cred, le_credit))
             # check that solde_init - le_credit + le_debit == solde_final
             mouvements = solde_init - le_debit + le_credit
             if abs(solde_final - mouvements) > .01:
                 if VERBOSITY:
-                    print("La somme des mouvements {} n'arrive pas au solde final {}".format(mouvements, solde_final))      
+                    print("La somme des mouvements {} n'arrive pas au solde final {}".format(
+                        mouvements, solde_final))
                     pdb.set_trace()
                 else:
-                    raise ValueError('La somme des mouvements n''arrive pas au solde final {}'.format(mouvements, solde_final))
-            
-            # create the control line with computed sum of amounts        
+                    raise ValueError(
+                        'La somme des mouvements n''arrive pas au solde final {}'.format(
+                            mouvements, solde_final))
+
+            # create the control line with computed sum of amounts
             OpeCont = uneOperation(basedate, "SOMME DE CONTROLE", "", somme_deb, somme_cred)
             self.ajoute(OpeCont, 'tail')
             # duplicate the current operation
@@ -531,11 +551,11 @@ class UnReleve:
 
             # crée une entrée avec le solde final
             self.ajoute(Ope, 'tail')
-            if VERBOSITY: 
+            if VERBOSITY:
                 print('{}({}): {}'.format(num, len(ligne), ligne))
                 print('Solde final: {}  au {}'.format(solde_final, basedate))
             # put entries in a more relevant order
-            self.liste.sort()    
+            self.liste.sort()
 
     def genere_CSV(self, filename="", basedir=None):
         """crée un fichier CSV qui contiendra les opérations du relevé
@@ -546,15 +566,23 @@ class UnReleve:
         if filename_csv not in deja_en_csv:
             print('[   ->csv ] Export     : '+filename_csv)
             if basedir:
-                filename_csv=os.path.join(basedir, filename_csv)
+                filename_csv = os.path.join(basedir, filename_csv)
             with open(filename_csv, "w") as file:
-                file.write("Date"+CSV_SEP+"Date_Valeur"+CSV_SEP+"Date_Oper"+CSV_SEP+"Débit ({})".format(self.monnaie)+CSV_SEP+"Crédit ({})".format(self.monnaie)+CSV_SEP+"Opération\n")
+                _ = CSV_SEP.join(["Date", "Date_Valeur", "Date_Oper",
+                                  "Débit ({})".format(self.monnaie),
+                                  "Crédit ({})".format(self.monnaie), "Opération"])
+                file.write(_+"\n")
                 for Ope in self.head:
-                    file.write(Ope.date+CSV_SEP+CSV_SEP+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
+                    _ = CSV_SEP.join([Ope.date, "", "", str(Ope.debit), str(Ope.credit), Ope.desc])
+                    file.write(_+"\n")
                 for Ope in self.liste:
-                    file.write(Ope.date+CSV_SEP+Ope.date_valeur+CSV_SEP+Ope.date_oper+CSV_SEP+str(Ope.debit)+CSV_SEP+str(Ope.credit)+CSV_SEP+Ope.desc+"\n")
+                    _ = CSV_SEP.join([Ope.date, Ope.date_valeur, Ope.date_oper, str(Ope.debit),
+                                      str(Ope.credit), Ope.desc])
+                    file.write(_+"\n")
                 for Ope in self.tail:
-                    file.write(Ope.date+CSV_SEP+CSV_SEP+CSV_SEP+'{:.2f}'.format(Ope.debit)+CSV_SEP+'{:.2f}'.format(Ope.credit)+CSV_SEP+Ope.desc+"\n")
+                    _ = CSV_SEP.join([Ope.date, "", "", '{:.2f}'.format(Ope.debit),
+                                      '{:.2f}'.format(Ope.credit), Ope.desc])
+                    file.write(_+"\n")
                 file.close()
         filename_xlsx = filename + ".xlsx"
         if filename_xlsx not in deja_en_xlsx:
@@ -570,12 +598,13 @@ class UnReleve:
             cell_format = workbook.add_format({'bold': True})
             cell_format.set_center_across()
             currency_form = workbook.add_format()
-            currency_form.set_num_format(8) # currency
-            date_form = workbook.add_format({'num_format':'DD/MM/YYYY'})
+            currency_form.set_num_format(8)  # currency
+            date_form = workbook.add_format({'num_format': 'DD/MM/YYYY'})
             string_form = workbook.add_format()
             string_form.set_indent(1)
 
-            worksheet.write_row('A1', ["Date", "Date_Valeur", "Date_Oper", "Débit", "Crédit", "Opération"], cell_format);
+            worksheet.write_row('A1', ["Date", "Date_Valeur", "Date_Oper", "Débit",
+                                       "Crédit", "Opération"], cell_format)
             row = 1
             for Ope in self.head:
                 worksheet.write_datetime(row, 0, Ope.dt_date, date_form)
@@ -636,6 +665,7 @@ def extraction_PDF(pdf_file, deja_en_txt, temp, basedir=None):
               str(os.path.getsize(abs_file)) + ' octets')
         temp.append(txt_file)
 
+
 def estDate(liste):
     """ Attend un format ['JJ', '.' 'MM']"""
     if len(liste) != 3:
@@ -643,6 +673,7 @@ def estDate(liste):
     if len(liste[0]) == 2 and liste[1] == '.' and len(liste[2]) == 2:
         return True
     return False
+
 
 def estArgent(liste):
     """ Attend un format ['[0-9]*', ',', '[0-9][0-9]'] """
@@ -678,6 +709,7 @@ def filtrer(liste, filetype):
     files.sort()
     return files
 
+
 def mois_dispos(liste):
     """Renvoie une liste des relevés disponibles de la forme
     [['2012', '10', '11', '12']['2013', '01', '02', '03', '04']]"""
@@ -694,7 +726,7 @@ def mois_dispos(liste):
                 continue
             # the next element contains the date
             annee = operation[num+2][0:4]
-            mois  = operation[num+2][4:6]
+            mois = operation[num+2][4:6]
             if annee not in les_annees:
                 les_annees.append(annee)
                 liste_annee = [annee, mois]
@@ -703,6 +735,7 @@ def mois_dispos(liste):
                 liste_tout[les_annees.index(annee)].append(mois)
     liste_tout.sort()
     return liste_tout
+
 
 # fonction inutilisée
 def est_dispo(annee, mois, liste):
@@ -713,6 +746,7 @@ def est_dispo(annee, mois, liste):
             if mois in annee_de_liste:
                 return True
     return False
+
 
 def affiche(liste):
     """Affiche à l'écran les mois dont les relevés sont disponibles"""
@@ -726,18 +760,19 @@ def affiche(liste):
         print(ligne)
     print("")
 
+
 def mysafe_atof(valeur):
     """Réalise atof avec prise en compte de plusieurs erreurs"""
     la_valeur = None
     e = None
     f = None
     try:
-        la_valeur =  locale.atof(valeur)
+        la_valeur = locale.atof(valeur)
     except ValueError as e:
         if dp != '.':
             try:
                 la_valeur = locale.atof(valeur.replace('.', ts))
-            except ValueError as f: 
+            except ValueError as f:
                 print('Failed to convert {} to a float: {}'.format(valeur, f))
     if la_valeur is None:
         myloc = locale.getdefaultlocale()
@@ -746,17 +781,20 @@ def mysafe_atof(valeur):
         if VERBOSITY > 1:
             pdb.set_trace()
         else:
-            if f: raise f
-            if e: raise e
+            if f:
+                raise f
+            if e:
+                raise e
 
     return la_valeur
+
 
 # On demarre ici
 def main(*args, **kwargs):
     print('\n******************************************************')
     print('*   Convertisseur de relevés bancaires BNP Paribas   *')
     print('********************  PDF -> CSV/XLSX  ***************\n')
-   
+
     if PDFTOTEXT_SPEC is None:
         if shutil.which(PDFTOTEXT) is None:
             print("Fichier {} absent !".format(PDFTOTEXT))
@@ -771,10 +809,10 @@ def main(*args, **kwargs):
     parser.add_argument("--prefixe", help="prefixe des fichiers à traiter")
     parser.add_argument("--dir", help="répertoire des fichiers à traiter")
     myargs = parser.parse_args()
- 
+
     if myargs.verbosity:
         VERBOSITY = myargs.verbosity
-   
+
     chemin = os.getcwd()
     if myargs.dir:
         myargs.dir = os.path.expanduser(myargs.dir)
@@ -829,9 +867,9 @@ def main(*args, **kwargs):
             if PREFIXE_COMPTE not in val:
                 continue
             annee = operation[num+2][0:4]
-            mois  = operation[num+2][4:6]
+            mois = operation[num+2][4:6]
             csv = PREFIXE_CSV+annee+'-'+mois+".csv"
-            xlsx= PREFIXE_CSV+annee+'-'+mois+".xlsx"
+            xlsxb= PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if csv not in deja_en_csv:
                 touch = touch + 1
                 extraction_PDF(releve, deja_en_txt, temp_list, myargs.dir)
@@ -857,14 +895,14 @@ def main(*args, **kwargs):
                 continue
             # the next element contains the date
             annee = operation[num+2][0:4]
-            mois  = operation[num+2][4:6]
+            mois = operation[num+2][4:6]
             csv = PREFIXE_CSV+annee+'-'+mois+".csv"
-            xlsx= PREFIXE_CSV+annee+'-'+mois+".xlsx"
+            xlsx = PREFIXE_CSV+annee+'-'+mois+".xlsx"
             if csv not in deja_en_csv:
                 releve = UnReleve()
                 releve.ajoute_from_TXT(txt, annee, mois, myargs.dir)
                 releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois, myargs.dir)
-            elif xlsx not in deja_en_xlsx: 
+            elif xlsx not in deja_en_xlsx:
                 releve = UnReleve()
                 releve.ajoute_from_TXT(txt, annee, mois, myargs.dir)
                 releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois, myargs.dir)
