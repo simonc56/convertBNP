@@ -37,7 +37,7 @@ script s'arrête directement.
 
 ## Versions
 
-Il y a trois variantes :
+Il y a quatre variantes :
 
 * *convertBNP* : script original créé le 10/11/2013 pour python3 sur
    Windows, suppose une mise en forme bien précise, utilisée autour de
@@ -48,6 +48,9 @@ Il y a trois variantes :
 * *convertBNP_5col.py* : ajoute une date des opérations, si elle est
   différente de la date du mouvement. Compatible avec les mises en
   formes utilisées de 2012 à 2018 (et au-delà ...).
+* *convertBNP_9col.py* : ajoute 4 champs supplémentaires: "Net", un nombre 
+  signé; "Rubrique" pour mettre une étiquette, "Dépenses" si le mouvement
+  correspond à un paiement et "Remb." s'il s'agit d'un remboursement.
 * les fichiers de sortie sont de la forme *'Relevé BNP YYYY-MM'* sous
   Windows et *'Relevé_BNP_YYYY-MM'* ailleurs.
 

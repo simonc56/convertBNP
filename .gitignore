@@ -1,0 +1,12 @@
+bin
+lib
+lib64
+data
+images
+.ipynb_checkpoints
+__pycache__
+pyvenv.cfg
+pip-selfcheck.json
+share
+prefixe_compte.txt
+README.html
