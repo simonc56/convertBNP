@@ -58,6 +58,8 @@ deja_en_xlsx   = ""
 
 # make verbosity a global variable
 VERBOSITY = 0
+PREFIXE_SCRIPT = ""
+NCOLS = 5
 
 # quelques motifs qui seront cherchés ... souvent
 pattern = re.compile('(\W+)')
@@ -121,7 +123,7 @@ class uneOperation:
                         try:
                             date_oper = dt.strptime(date, '%d/%m/%y').strftime('%d/%m/%Y')
                             self.date_oper = date_oper
-                            break;
+                            break
                         except ValueError as e:
                             if 1 == num or 4 == num:
                                 # du 020316
@@ -129,10 +131,10 @@ class uneOperation:
                                 try:
                                     date_oper = dt.strptime(date, '%d%m%y').strftime('%d/%m/%Y')
                                     self.date_oper = date_oper
-                                    break;
+                                    break
                                 except ValueError as e:
                                     continue
-                            continue         
+                            continue
         return resu
 
     def __eq__(self, other):
@@ -218,7 +220,7 @@ class UnReleve:
             num = 0
 
             if VERBOSITY > 1:
-                pdb.set_trace()
+                import pdb; pdb.set_trace()
 
             # ignore les lignes avec les coordonnées et le blabla
             for ligne in file:
@@ -281,7 +283,7 @@ class UnReleve:
                 print(Ope)
 
             if VERBOSITY > 1:
-                pdb.set_trace()
+                import pdb; pdb.set_trace()
 
             Ope = uneOperation()
             date = ""
@@ -296,12 +298,12 @@ class UnReleve:
                 num = num+1
                 if len(ligne) < 2:           # ligne vide, trait du tableau
                     vide = vide + 1
-                    if vide < 3:
+                    if vide < 5:
                         continue
 
                 if Table:
                     # detect footer
-                    if (vide > 2):
+                    if (vide > 4):
                         eot = True
                     else:
                         eot = footer_pat.search(ligne)
@@ -329,6 +331,7 @@ class UnReleve:
                     # search for new page header -- compute actual page width
                     if nature_pat.search(ligne):
                         Table = True        # where back analysing data
+                        vide = 0
                         Date_pos = re.search('D\s*ate', ligne).start()
                         Nature_pos = re.search('N\s*ature', ligne).start()
                         dernier = re.search('V\s*aleur', ligne)
@@ -391,13 +394,13 @@ class UnReleve:
                             
                     except ValueError as e:
                         print('Failed to convert {} to a float: {}'.format(la_valeur, e))
-                    previous_ligne = ligne    
+                    previous_ligne = ligne
                     ligne = ligne[:Debit_pos]     # truncate the money amount
 
                 if estDate(date_ou_pas):          # est-ce une date
-                    date_valeur = ligne[Valeur_pos:Debit_pos].split()  # il y a aussi une date valeur
+                    # il y a aussi une date valeur
+                    date_valeur = ligne[Valeur_pos:Debit_pos].split() 
                     if 1 == len(date_valeur):
-
                         date_valeur = pattern.split(date_valeur[0])
                     if Ope.estRemplie(operation):          # on ajoute la précédente
                         self.ajoute(Ope)          # opération si elle est valide
@@ -416,7 +419,7 @@ class UnReleve:
                     date = ""
                     if (len(date_valeur) < 3):
                         date_valeur = dernier
- 
+
                     if (len(date_valeur) < 3):
                         print('line 223')
                         print(ligne)
@@ -462,7 +465,7 @@ class UnReleve:
                 for elem in operation[count:]:
                     count = count + 1
                     if dp in elem:
-                        if (1 == len(elem)):        
+                        if (1 == len(elem)):
                             # in the old listings, there were extraneous spaces
                             count = count + 1
                         break
@@ -498,6 +501,7 @@ class UnReleve:
 
             # montant ?
             la_valeur = mysafe_atof(''.join(operation[num+1:]))
+
             ligne = ' '.join(operation[:num+1])
             # dans quel sens ?
             if re.match('crediteur', operation[1], re.IGNORECASE):
@@ -592,25 +596,37 @@ class UnReleve:
                 filename_xlsx = os.path.join(basedir, filename_xlsx)
             workbook = xlsxwriter.Workbook(filename_xlsx)
             worksheet = workbook.add_worksheet()
-            worksheet.set_column(0, 2, 12)
-            worksheet.set_column(3, 4, 10)
-            worksheet.set_column(5, 5, 64)
-            cell_format = workbook.add_format({'bold': True})
-            cell_format.set_center_across()
             currency_form = workbook.add_format()
             currency_form.set_num_format(8)  # currency
             date_form = workbook.add_format({'num_format': 'DD/MM/YYYY'})
             string_form = workbook.add_format()
+            worksheet.set_column(0, 2, 12)
+            if 5 == NCOLS:
+                desc_col = 5
+            else:
+                desc_col = 9
+            worksheet.set_column(3, desc_col-1, 10, currency_form)
+            worksheet.set_column(desc_col, desc_col, 64)
+            cell_format = workbook.add_format({'bold': True})
+            cell_format.set_center_across()
             string_form.set_indent(1)
 
-            worksheet.write_row('A1', ["Date", "Date_Valeur", "Date_Oper", "Débit",
-                                       "Crédit", "Opération"], cell_format)
+            if 5 == NCOLS:
+                worksheet.write_row('A1', ["Date", "Date_Valeur", "Date_Oper", "Débit",
+                                           "Crédit", "Opération"], cell_format)
+            else:
+                worksheet.write_row('A1', ["Date", "Date_Valeur", "Date_Oper", "Débit",
+                                           "Crédit", "Net", "Rubrique", "Dépenses", "Remb.",
+                                           "Opération"], cell_format)
             row = 1
             for Ope in self.head:
                 worksheet.write_datetime(row, 0, Ope.dt_date, date_form)
                 worksheet.write_number(row, 3, Ope.debit, currency_form)
                 worksheet.write_number(row, 4, Ope.credit, currency_form)
-                worksheet.write_string(row, 5, Ope.desc, string_form)
+                if NCOLS > 5:
+                    worksheet.write_formula(row, 5, "=E{}-D{}".format(row+1, row+1),
+                                            currency_form, Ope.credit-Ope.debit)
+                worksheet.write_string(row, desc_col, Ope.desc, string_form)
                 row = row + 1
 
             for Ope in self.liste:
@@ -621,21 +637,31 @@ class UnReleve:
                     worksheet.write_datetime(row, 2, Ope.dt_oper, date_form)
                 worksheet.write_number(row, 3, Ope.debit, currency_form)
                 worksheet.write_number(row, 4, Ope.credit, currency_form)
-                worksheet.write_string(row, 5, Ope.desc, string_form)
+                if NCOLS > 5:
+                    worksheet.write_formula(row, 5, "=E{}-D{}".format(row+1, row+1),
+                                            currency_form, Ope.credit-Ope.debit)
+                worksheet.write_string(row, desc_col, Ope.desc, string_form)
                 row = row + 1
+
             # generate a control formula
             Ope = self.tail[0]
             worksheet.write(row, 0, Ope.dt_date, date_form)
             # EXELL formula are stored in english but displayed in locale
             worksheet.write_formula(row, 3, '=SUM(D3:D'+str(row)+')', currency_form, Ope.debit)
             worksheet.write_formula(row, 4, '=SUM(E3:E'+str(row)+')', currency_form, Ope.credit)
-            worksheet.write(row, 5, Ope.desc, string_form)
+            if NCOLS > 5:
+                worksheet.write_formula(row, 5, "=E{}-D{}".format(row+1, row+1),
+                                        currency_form, Ope.credit-Ope.debit)
+            worksheet.write(row, desc_col, Ope.desc, string_form)
             row = row + 1
             for Ope in self.tail[1:]:
                 worksheet.write_datetime(row, 0, Ope.dt_date, date_form)
                 worksheet.write_number(row, 3, Ope.debit, currency_form)
                 worksheet.write_number(row, 4, Ope.credit, currency_form)
-                worksheet.write_string(row, 5, Ope.desc, string_form)
+                if NCOLS > 5:
+                    worksheet.write_formula(row, 5, "=E{}-D{}".format(row+1, row+1),
+                                            currency_form, Ope.credit-Ope.debit)
+                worksheet.write_string(row, desc_col, Ope.desc, string_form)
                 row = row + 1
             workbook.close()
 
@@ -764,16 +790,21 @@ def affiche(liste):
 def mysafe_atof(valeur):
     """Réalise atof avec prise en compte de plusieurs erreurs"""
     la_valeur = None
-    e = None
-    f = None
+    my_e = None
+    my_f = None
     try:
         la_valeur = locale.atof(valeur)
     except ValueError as e:
+        # see https://stackoverflow.com/questions/24271752/except-clause-deletes-local-variable
+        my_e = e
+        my_e.__traceback__ = None
         if dp != '.':
             try:
                 la_valeur = locale.atof(valeur.replace('.', ts))
             except ValueError as f:
-                print('Failed to convert {} to a float: {}'.format(valeur, f))
+                my_f = f
+                my_f.__traceback__ = None
+                print('Failed to convert {} to a float: {}'.format(valeur, my_f))
     if la_valeur is None:
         myloc = locale.getdefaultlocale()
         print('valeur par défaut: language {}, code {}\n'.format(myloc[0], myloc[1]))
@@ -781,10 +812,10 @@ def mysafe_atof(valeur):
         if VERBOSITY > 1:
             pdb.set_trace()
         else:
-            if f:
-                raise f
-            if e:
-                raise e
+            if my_f:
+                raise my_f
+            if my_e:
+                raise my_e
 
     return la_valeur
 
@@ -824,9 +855,17 @@ def main(*args, **kwargs):
     if myargs.prefixe:
         PREFIXE_COMPTE = myargs.prefixe
     else:
+        # default: explore '.', then convertBNP base dir
         if os.path.isfile('./prefixe_compte.txt'):
             with open('./prefixe_compte.txt', 'r') as file:
                 PREFIXE_COMPTE = file.readline().strip()
+        else:
+            mes_pdfs = os.path.join(os.path.dirname(
+                PREFIXE_SCRIPT), 'prefixe_compte.txt')
+            if os.path.isfile(mes_pdfs):
+                with open(mes_pdfs, 'r') as file:
+                    PREFIXE_COMPTE = file.readline().strip()
+        # override with the local file, if any
         mes_pdfs = os.path.join(chemin, 'prefixe_compte.txt')
         if os.path.isfile(mes_pdfs):
             with open(mes_pdfs, 'r') as file:
@@ -927,4 +966,7 @@ def main(*args, **kwargs):
 
 
 if __name__ == "__main__":
+    PREFIXE_SCRIPT = os.path.realpath(sys.argv[0])
+    if re.search('_9col', sys.argv[0]):
+        NCOLS = 9
     sys.exit(main(sys.argv[1:]))
