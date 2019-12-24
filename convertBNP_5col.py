@@ -43,6 +43,7 @@ import xlsxwriter
 import locale
 import importlib
 from datetime import datetime as dt
+from calendar import month_name
 
 PDFTOTEXT_SPEC = importlib.util.find_spec("pdftotext")
 if PDFTOTEXT_SPEC is not None:
@@ -561,7 +562,7 @@ class UnReleve:
             # put entries in a more relevant order
             self.liste.sort()
 
-    def genere_CSV(self, filename="", basedir=None):
+    def genere_CSV(self, filename="", basedir=None, mois=None):
         """crée un fichier CSV qui contiendra les opérations du relevé
         si ce CSV n'existe pas deja"""
         if filename == "":
@@ -595,7 +596,10 @@ class UnReleve:
             if basedir:
                 filename_xlsx = os.path.join(basedir, filename_xlsx)
             workbook = xlsxwriter.Workbook(filename_xlsx)
-            worksheet = workbook.add_worksheet()
+            if mois:
+                worksheet = workbook.add_worksheet(month_name[int(mois)-1])
+            else:
+                worksheet = workbook.add_worksheet()
             currency_form = workbook.add_format()
             currency_form.set_num_format(8)  # currency
             date_form = workbook.add_format({'num_format': 'DD/MM/YYYY'})
@@ -940,11 +944,11 @@ def main(*args, **kwargs):
             if csv not in deja_en_csv:
                 releve = UnReleve()
                 releve.ajoute_from_TXT(txt, annee, mois, myargs.dir)
-                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois, myargs.dir)
+                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois, myargs.dir, mois)
             elif xlsx not in deja_en_xlsx:
                 releve = UnReleve()
                 releve.ajoute_from_TXT(txt, annee, mois, myargs.dir)
-                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois, myargs.dir)
+                releve.genere_CSV(PREFIXE_CSV+annee+'-'+mois, myargs.dir, mois)
 
     # on efface les fichiers TXT
     if len(temp_list):
