@@ -262,7 +262,7 @@ class UnReleve:
                                 la_date = ""
                                 operation = []
                         continue
-                     if len(ligne) > 1:
+                    if len(ligne) > 1:
                         vide = 0
 
                 if Table is False:
