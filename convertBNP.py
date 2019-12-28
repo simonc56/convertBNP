@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 #
-# auteur             twolaw_at_free_dot_fr
 # nom                convertBNP_4col.py
 # description        Lit les relevés bancaires de la BNP en PDF dans le répertoire courant pour en générer des CSV
 #                    Nécessite le fichier pdftotext.exe en version 3.03 issu de l'archive xpdf (gratuit, GPL2)

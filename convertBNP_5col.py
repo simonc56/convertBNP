@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 #
-# auteur             2012 -- 2016 twolaw_at_free_dot_fr
-#                    2017 -- 2019 Pascal Dupuis <cdemills@gmail.com>
 # nom                convertBNP_5col.py
 # description        Lit les relevés bancaires de la BNP en PDF dans le répertoire courant pour en générer des CSV
 #                    Nécessite le fichier pdftotext.exe en version 3.03 issu de l'archive xpdf (gratuit, GPL2)
@@ -20,7 +18,7 @@
 #
 # fichiers PDF de la forme RCHQ_101_300040012300001234567_20131026_2153.PDF
 
-# Copyright 2012-2016 twolaw_at_free_dot_fr
+# Copyright 2012-2016 simonc56
 # Copyright 2017-2019 Pascal Dupuis <cdemills@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
