@@ -18,7 +18,7 @@
 #
 # fichiers PDF de la forme RCHQ_101_300040012300001234567_20131026_2153.PDF
 
-# Copyright 2012-2016 simonc56
+# Copyright 2012-2016 simonc56 
 # Copyright 2017-2019 Pascal Dupuis <cdemills@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
